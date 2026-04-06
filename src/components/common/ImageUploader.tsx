@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Upload, Camera, Image as ImageIcon, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { Upload, Camera, Image as ImageIcon, Loader2, Sparkles, Plus, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import imageCompression from 'browser-image-compression'
 import { Card, CardContent } from '@/components/ui/card'
@@ -215,22 +215,13 @@ export function ImageUploader({
                     </motion.div>
                   ))}
                   
-                  {/* 사진 추가/카메라 버튼 그리드 */}
-                  <div className="flex flex-col gap-2 aspect-square">
-                    <div 
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-white hover:border-primary transition-all cursor-pointer group text-primary shadow-sm"
-                    >
-                       <Camera size={18} className="group-hover:scale-110 transition-transform" />
-                       <span className="text-[9px] font-black uppercase tracking-tighter">카메라</span>
-                    </div>
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-primary transition-all cursor-pointer group text-slate-400 hover:text-primary shadow-sm"
-                    >
-                       <ImageIcon size={18} className="group-hover:scale-110 transition-transform" />
-                       <span className="text-[9px] font-black uppercase tracking-tighter">갤러리</span>
-                    </div>
+                  {/* 사진 추가 버튼 */}
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-primary transition-all cursor-pointer group text-slate-400 hover:text-primary shadow-sm"
+                  >
+                     <div className="bg-white p-3 rounded-full shadow-sm group-hover:scale-110 transition-transform"><Plus size={24} /></div>
+                     <span className="text-[10px] font-black uppercase tracking-widest">사진 추가</span>
                   </div>
                 </div>
 

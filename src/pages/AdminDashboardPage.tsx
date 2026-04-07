@@ -33,14 +33,12 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [settings, setSettings] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchAdminData()
   }, [])
 
   const fetchAdminData = async () => {
-    setLoading(true)
     try {
       // 1. 통계 데이터 (최근 30일)
       const { data: statsData } = await supabase
@@ -67,7 +65,7 @@ export default function AdminDashboardPage() {
     } catch (e) {
       console.error('Admin data fetch failed:', e)
     } finally {
-      setLoading(false)
+      // Data fetch complete
     }
   }
 

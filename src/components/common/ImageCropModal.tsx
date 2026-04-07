@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
-import Cropper from 'react-easy-crop'
+import { useState, useRef, useEffect } from 'react'
+import ReactCrop, { type Crop, centerCrop, makeAspectCrop, PixelCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Slider } from '@/components/ui/slider'
 import { Check, X, RotateCcw } from 'lucide-react'
 
 interface ImageCropModalProps {
@@ -12,150 +12,154 @@ interface ImageCropModalProps {
   onCropComplete: (croppedImage: Blob) => void
 }
 
+function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+  const { width, height } = e.currentTarget
+  return centerCrop(
+    makeAspectCrop(
+      {
+        unit: '%',
+        width: 90,
+      },
+      undefined, // No fixed aspect ratio
+      width,
+      height
+    ),
+    width,
+    height
+  )
+}
+
 export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: ImageCropModalProps) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
+  const [crop, setCrop] = useState<Crop>()
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>()
   const [rotation, setRotation] = useState(0)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
 
-  const onCropChange = (crop: { x: number; y: number }) => {
-    setCrop(crop)
-  }
-
-  const onZoomChange = (zoom: number) => {
-    setZoom(zoom)
-  }
-
-  const onCropCompleteInternal = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels)
-  }, [])
-
-  const createImage = (url: string): Promise<HTMLImageElement> =>
-    new Promise((resolve, reject) => {
-      const image = new Image()
-      image.addEventListener('load', () => resolve(image))
-      image.addEventListener('error', (error) => reject(error))
-      image.setAttribute('crossOrigin', 'anonymous')
-      image.src = url
-    })
+  useEffect(() => {
+    if (isOpen) {
+      setCrop(undefined)
+      setCompletedCrop(undefined)
+      setRotation(0)
+    }
+  }, [isOpen])
 
   const getCroppedImg = async (
-    imageSrc: string,
-    pixelCrop: any,
+    image: HTMLImageElement,
+    pixelCrop: PixelCrop,
     rotation = 0
   ): Promise<Blob | null> => {
-    const image = await createImage(imageSrc)
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
 
     if (!ctx) return null
 
-    const rotRad = (rotation * Math.PI) / 180
-    const { width: bWidth, height: bHeight } = {
-      width: Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height),
-      height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height),
+    const scaleX = image.naturalWidth / image.width
+    const scaleY = image.naturalHeight / image.height
+    const pixelRatio = window.devicePixelRatio
+
+    canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio)
+    canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio)
+
+    ctx.scale(pixelRatio, pixelRatio)
+    ctx.imageSmoothingQuality = 'high'
+
+    const centerX = image.naturalWidth / 2
+    const centerY = image.naturalHeight / 2
+
+    ctx.save()
+
+    // 1. Move to the center of the selection
+    ctx.translate(canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio))
+    // 2. Apply rotation if any
+    if (rotation !== 0) {
+      ctx.rotate((rotation * Math.PI) / 180)
     }
-
-    canvas.width = bWidth
-    canvas.height = bHeight
-
-    ctx.translate(bWidth / 2, bHeight / 2)
-    ctx.rotate(rotRad)
-    ctx.translate(-image.width / 2, -image.height / 2)
-    ctx.drawImage(image, 0, 0)
-
-    const data = ctx.getImageData(
-      pixelCrop.x,
-      pixelCrop.y,
-      pixelCrop.width,
-      pixelCrop.height
+    // 3. Scale back down to the image coordinate space
+    ctx.scale(scaleX, scaleY)
+    // 4. Move to the image origin relative to the crop selection
+    ctx.translate(
+      -pixelCrop.x - pixelCrop.width / 2,
+      -pixelCrop.y - pixelCrop.height / 2
+    )
+    
+    ctx.drawImage(
+      image,
+      0,
+      0,
+      image.naturalWidth,
+      image.naturalHeight,
+      0,
+      0,
+      image.naturalWidth,
+      image.naturalHeight
     )
 
-    canvas.width = pixelCrop.width
-    canvas.height = pixelCrop.height
-
-    ctx.putImageData(data, 0, 0)
+    ctx.restore()
 
     return new Promise((resolve) => {
-      canvas.toBlob((file) => {
-        resolve(file)
-      }, 'image/webp')
+      canvas.toBlob((blob) => {
+        resolve(blob)
+      }, 'image/webp', 0.95)
     })
   }
 
   const handleDone = async () => {
+    if (!imgRef.current || !completedCrop) return
+
     try {
-      const croppedImage = await getCroppedImg(image, croppedAreaPixels, rotation)
-      if (croppedImage) {
-        onCropComplete(croppedImage)
+      const blob = await getCroppedImg(imgRef.current, completedCrop, rotation)
+      if (blob) {
+        onCropComplete(blob)
         onClose()
       }
     } catch (e) {
-      console.error(e)
+      console.error('Error cropping image:', e)
     }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden rounded-3xl sm:rounded-[2rem] border-border bg-card">
-        <DialogHeader className="p-6 border-b border-border flex-none">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            이미지 자르기 <span className="text-xs font-normal text-muted-foreground">(필요한 부분만 선택하세요)</span>
+      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl sm:rounded-[2.5rem] border-border bg-card shadow-2xl">
+        <DialogHeader className="p-6 border-b border-border flex-none bg-card/80 backdrop-blur-md z-10">
+          <DialogTitle className="text-xl font-bold flex items-center justify-between">
+            <span>영역 선택하기 <span className="text-xs font-normal text-muted-foreground ml-2">(원하는 영역의 모서리를 드래그하세요)</span></span>
+            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setRotation((r) => (r + 90) % 360)}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 relative bg-black/5">
-          <Cropper
-            image={image}
+        <div className="flex-1 relative bg-slate-900/10 overflow-auto flex items-center justify-center p-4 sm:p-8 custom-scrollbar">
+          <ReactCrop
             crop={crop}
-            zoom={zoom}
-            rotation={rotation}
+            onChange={(_, percentCrop) => setCrop(percentCrop)}
+            onComplete={(c) => setCompletedCrop(c)}
             aspect={undefined}
-            onCropChange={onCropChange}
-            onCropComplete={onCropCompleteInternal}
-            onZoomChange={onZoomChange}
-            objectFit="contain"
-          />
+            className="max-w-full"
+          >
+            <img
+              ref={imgRef}
+              alt="Crop me"
+              src={image}
+              style={{ transform: `rotate(${rotation}deg)`, maxHeight: '70vh' }}
+              onLoad={(e) => setCrop(onImageLoad(e))}
+              className="block max-w-full rounded-lg shadow-lg"
+            />
+          </ReactCrop>
         </div>
 
-        <div className="flex-none p-6 space-y-6 bg-card border-t border-border">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest w-12">확대</span>
-              <Slider
-                value={[zoom]}
-                min={1}
-                max={3}
-                step={0.1}
-                onValueChange={(vals: number[]) => setZoom(vals[0])}
-                className="flex-1"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest w-12">회전</span>
-              <Slider
-                value={[rotation]}
-                min={0}
-                max={360}
-                step={1}
-                onValueChange={(vals: number[]) => setRotation(vals[0])}
-                className="flex-1"
-              />
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setRotation(0)}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-row gap-3 pt-2">
-            <Button variant="ghost" onClick={onClose} className="flex-1 h-12 font-bold rounded-xl text-muted-foreground">
-              <X className="mr-2 h-4 w-4" /> 취소
-            </Button>
-            <Button onClick={handleDone} className="flex-1 h-12 font-bold rounded-xl bg-foreground text-background hover:opacity-90">
-              <Check className="mr-2 h-4 w-4" /> 자르기 완료
-            </Button>
-          </DialogFooter>
-        </div>
+        <DialogFooter className="flex flex-row gap-3 p-6 bg-card border-t border-border flex-none">
+          <Button variant="ghost" onClick={onClose} className="flex-1 h-12 font-bold rounded-2xl text-muted-foreground hover:bg-muted">
+            <X className="mr-2 h-4 w-4" /> 취소
+          </Button>
+          <Button 
+            onClick={handleDone} 
+            disabled={!completedCrop}
+            className="flex-1 h-12 font-bold rounded-2xl bg-foreground text-background hover:opacity-90 disabled:opacity-30"
+          >
+            <Check className="mr-2 h-4 w-4" /> 선택 영역 확정
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

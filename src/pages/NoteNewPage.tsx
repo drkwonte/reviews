@@ -21,6 +21,7 @@ import { extractTextFromImage, generateAnswerFromText } from '@/services/gemini'
 import 'katex/dist/katex.min.css'
 import katex from 'katex'
 import { supabase } from '@/lib/supabase'
+import { ImageCropModal } from '@/components/common/ImageCropModal'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -44,6 +45,32 @@ export default function NoteNewPage() {
   const [answerImages, setAnswerImages] = useState<File[]>([])
   const [mergedAnswerFile, setMergedAnswerFile] = useState<File | null>(null)
   const [answerText, setAnswerText] = useState('')
+
+  // Cropping States
+  const [croppingImage, setCroppingImage] = useState<string | null>(null)
+  const [isCropOpen, setIsCropOpen] = useState(false)
+  const [croppingType, setCroppingType] = useState<'problem' | 'answer'>('problem')
+
+  const handleOpenCrop = (imageFile: File, type: 'problem' | 'answer') => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCroppingImage(reader.result as string)
+      setCroppingType(type)
+      setIsCropOpen(true)
+    }
+    reader.readAsDataURL(imageFile)
+  }
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    const fileName = `cropped_${Date.now()}.webp`
+    const croppedFile = new File([croppedBlob], fileName, { type: 'image/webp' })
+    if (croppingType === 'problem') {
+      setProblemImages([croppedFile]) // For now, handle single crop or can extend to multi
+    } else {
+      setAnswerImages([croppedFile])
+    }
+    setIsCropOpen(false)
+  }
 
   // Step 1 -> Step 2: 문제 OCR 분석
   const handleExtractProblem = async () => {
@@ -304,7 +331,17 @@ export default function NoteNewPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-10 p-8">
-                    <ImageUploader label="문제 이미지 업로드 (멀티)" value={problemImages} onChange={setProblemImages} />
+                    <ImageUploader 
+                        label="문제 이미지 업로드 (멀티)" 
+                        value={problemImages} 
+                        onChange={(files) => {
+                            if (files.length > 0 && files[0] instanceof File) {
+                                handleOpenCrop(files[0], 'problem')
+                            } else {
+                                setProblemImages(files as File[])
+                            }
+                        }} 
+                    />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-3">
                          <Label className="text-[13px] font-black text-muted-foreground">과목 <span className="text-red-500">*</span></Label>
@@ -333,17 +370,17 @@ export default function NoteNewPage() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className={cn(
-                      "flex flex-col lg:grid h-[600px]",
+                      "flex flex-col lg:grid lg:h-[600px]",
                       problemText.includes('$') ? "lg:grid-cols-3" : "lg:grid-cols-2"
                     )}>
-                      <div className="border-r border-border p-8 flex flex-col items-center justify-center bg-muted/20 overflow-hidden">
+                      <div className="border-b lg:border-b-0 lg:border-r border-border p-6 md:p-8 flex flex-col items-center justify-center bg-muted/20 overflow-hidden min-h-[300px] lg:min-h-0">
                         <Label className="self-start mb-4 text-[11px] font-black text-primary uppercase tracking-widest">병합된 이미지 미리보기</Label>
                         {mergedProblemFile && <img src={URL.createObjectURL(mergedProblemFile)} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-border" alt="Merged Problem" />}
                       </div>
-                      <div className="border-r border-border p-8 flex flex-col overflow-hidden">
+                      <div className="border-b lg:border-b-0 lg:border-r border-border p-6 md:p-8 flex flex-col overflow-hidden min-h-[300px] lg:min-h-0">
                         <Label className="mb-4 text-[11px] font-black text-muted-foreground uppercase tracking-widest">편집창 (텍스트)</Label>
                         <Textarea 
-                          className="flex-1 border-border bg-muted/10 resize-none rounded-2xl p-6 text-[15px] leading-relaxed text-foreground"
+                          className="flex-1 min-h-[200px] lg:min-h-0 border-border bg-muted/10 resize-none rounded-2xl p-6 text-[15px] leading-relaxed text-foreground"
                           value={problemText} onChange={(e) => setProblemText(e.target.value)}
                         />
                       </div>
@@ -369,7 +406,15 @@ export default function NoteNewPage() {
                   </CardHeader>
                   <CardContent className="p-8 space-y-8">
                     <ImageUploader 
-                      label="정답/풀이 이미지 업로드 (멀티)" value={answerImages} onChange={setAnswerImages} 
+                      label="정답/풀이 이미지 업로드 (멀티)" 
+                      value={answerImages} 
+                      onChange={(files) => {
+                        if (files.length > 0 && files[0] instanceof File) {
+                          handleOpenCrop(files[0], 'answer')
+                        } else {
+                          setAnswerImages(files as File[])
+                        }
+                      }} 
                       aiLabel="AI 풀이 생성" aiDescription="본 문제를 기반으로 자동 생성" onAIAction={handleGenerateAIAnswer}
                     />
                   </CardContent>
@@ -384,26 +429,26 @@ export default function NoteNewPage() {
                     <CardTitle className="text-xl font-bold text-foreground">최종 마스터 뷰 확인</CardTitle>
                     {mergedAnswerFile && <div className="text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full uppercase tracking-tighter">Merged OCR Mode</div>}
                   </CardHeader>
-                  <CardContent className="p-0 min-h-[500px]">
+                  <CardContent className="p-0 min-h-[400px]">
                     <AnimatePresence mode="wait">
                       {answerImages.length > 0 ? (
                         <motion.div 
                           key="with-img" 
                           className={cn(
-                            "flex flex-col lg:grid h-[600px]",
+                            "flex flex-col lg:grid lg:h-[600px]",
                             answerText.includes('$') ? "lg:grid-cols-3" : "lg:grid-cols-2"
                           )}
                         >
-                          <div className="border-r border-border p-8 flex flex-col items-center justify-center bg-muted/20 overflow-hidden">
+                          <div className="border-b lg:border-b-0 lg:border-r border-border p-6 md:p-8 flex flex-col items-center justify-center bg-muted/20 overflow-hidden min-h-[300px] lg:min-h-0">
                             <Label className="self-start mb-4 text-[11px] font-black text-primary uppercase tracking-widest">병합된 해설 이미지</Label>
                             {mergedAnswerFile && <img src={URL.createObjectURL(mergedAnswerFile)} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-border" alt="Merged Answer" />}
                           </div>
-                          <div className="border-r border-border p-8 flex flex-col overflow-hidden">
+                          <div className="border-b lg:border-b-0 lg:border-r border-border p-6 md:p-8 flex flex-col overflow-hidden min-h-[300px] lg:min-h-0">
                             <Label className="mb-4 text-[11px] font-black text-muted-foreground uppercase tracking-widest">편집창 (텍스트)</Label>
-                            <Textarea className="flex-1 bg-muted/10 border-border rounded-2xl p-6 text-[15px] leading-relaxed resize-none text-foreground" value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
+                            <Textarea className="flex-1 min-h-[200px] lg:min-h-0 bg-muted/10 border-border rounded-2xl p-6 text-[15px] leading-relaxed resize-none text-foreground" value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
                           </div>
                           {answerText.includes('$') && (
-                            <div className="p-8 flex flex-col overflow-hidden bg-muted/5">
+                            <div className="p-6 md:p-8 flex flex-col overflow-hidden bg-muted/5 min-h-[300px] lg:min-h-0">
                               <Label className="mb-4 text-[11px] font-black text-primary uppercase tracking-widest">미리보기 (수식)</Label>
                               <div className="flex-1 bg-card border border-border rounded-2xl p-8 overflow-y-auto custom-scrollbar text-foreground">
                                  <div className="prose prose-slate dark:prose-invert max-w-none prose-sm" dangerouslySetInnerHTML={{ __html: renderMath(answerText) }} />
@@ -419,7 +464,7 @@ export default function NoteNewPage() {
                                  <Sparkles className="h-5 w-5" /> MASTER SOLUTION PREVIEW (AI)
                                </Label>
                             </div>
-                            <div className="bg-card border-2 border-primary/20 rounded-[2.5rem] p-10 shadow-2xl min-h-[400px] overflow-y-scroll custom-scrollbar text-foreground">
+                            <div className="bg-card border-2 border-primary/20 rounded-[2.5rem] p-4 md:p-10 shadow-2xl min-h-[300px] md:min-h-[400px] overflow-y-scroll custom-scrollbar text-foreground">
                                <div className="prose prose-slate dark:prose-invert max-w-none prose-lg leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMath(answerText) }} />
                             </div>
                           </div>
@@ -432,6 +477,15 @@ export default function NoteNewPage() {
             )}
           </AnimatePresence>
         </div>
+
+        {croppingImage && (
+          <ImageCropModal 
+            image={croppingImage} 
+            isOpen={isCropOpen} 
+            onClose={() => setIsCropOpen(false)} 
+            onCropComplete={handleCropComplete} 
+          />
+        )}
       </main>
 
       {renderActionBar()}

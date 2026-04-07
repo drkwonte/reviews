@@ -32,40 +32,42 @@ export function AppHeader() {
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       <div className="container max-w-6xl px-4 h-20 flex items-center justify-between mx-auto flex-shrink-0">
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1 md:gap-4 flex-1">
           <img 
             src="/nextime_logo_rectangle_200.png" 
             alt="nextime" 
-            className="h-8 md:h-10 w-auto object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95" 
+            className="h-7 sm:h-8 md:h-10 w-auto object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95 flex-shrink-0" 
             onClick={() => navigate('/dashboard')} 
           />
           
           <div className="w-[1px] h-6 bg-border mx-1 md:mx-2 hidden sm:block"></div>
           
-          <nav className="flex items-center gap-1 md:gap-3 ml-2 md:ml-4">
+          <nav className="flex items-center gap-0.5 sm:gap-1 md:gap-3 ml-1 sm:ml-2 md:ml-4">
             <button 
               onClick={() => navigate('/dashboard')} 
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all group",
+                "flex items-center gap-1.5 md:gap-2 px-2.5 sm:px-4 py-2 rounded-2xl text-sm font-bold transition-all group",
                 isDashboard 
                   ? "text-primary bg-primary/10 shadow-sm" 
                   : "text-muted-foreground hover:text-primary hover:bg-muted"
               )}
+              title="대시보드"
             >
               <LayoutDashboard size={18} className={cn("transition-transform group-hover:scale-110", isDashboard ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
-              <span>대시보드</span>
+              <span className="hidden sm:inline">대시보드</span>
             </button>
             <button 
               onClick={() => navigate('/notes')} 
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all group",
+                "flex items-center gap-1.5 md:gap-2 px-2.5 sm:px-4 py-2 rounded-2xl text-sm font-bold transition-all group",
                 isNotes 
                   ? "text-primary bg-primary/10 shadow-sm" 
                   : "text-muted-foreground hover:text-primary hover:bg-muted"
               )}
+              title="오답노트"
             >
               <BookOpen size={18} className={cn("transition-transform group-hover:scale-110", isNotes ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
-              <span>오답노트</span>
+              <span className="hidden sm:inline">오답노트</span>
             </button>
           </nav>
         </div>

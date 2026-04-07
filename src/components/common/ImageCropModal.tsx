@@ -49,40 +49,28 @@ export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: Image
 
     const scaleX = image.naturalWidth / image.width
     const scaleY = image.naturalHeight / image.height
-    const pixelRatio = window.devicePixelRatio
 
-    canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio)
-    canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio)
+    const width = Math.floor(pixelCrop.width * scaleX)
+    const height = Math.floor(pixelCrop.height * scaleY)
 
-    ctx.scale(pixelRatio, pixelRatio)
+    canvas.width = width
+    canvas.height = height
+
     ctx.imageSmoothingQuality = 'high'
 
     ctx.save()
-
-    // 1. Move to the center of the selection
-    ctx.translate(canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio))
-    // 2. Apply rotation if any
-    if (rotation !== 0) {
-      ctx.rotate((rotation * Math.PI) / 180)
-    }
-    // 3. Scale back down to the image coordinate space
-    ctx.scale(scaleX, scaleY)
-    // 4. Move to the image origin relative to the crop selection
-    ctx.translate(
-      -pixelCrop.x - pixelCrop.width / 2,
-      -pixelCrop.y - pixelCrop.height / 2
-    )
     
+    // Draw only the selected portion of the original image
     ctx.drawImage(
       image,
+      pixelCrop.x * scaleX,
+      pixelCrop.y * scaleY,
+      pixelCrop.width * scaleX,
+      pixelCrop.height * scaleY,
       0,
       0,
-      image.naturalWidth,
-      image.naturalHeight,
-      0,
-      0,
-      image.naturalWidth,
-      image.naturalHeight
+      width,
+      height
     )
 
     ctx.restore()

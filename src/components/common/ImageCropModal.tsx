@@ -39,8 +39,7 @@ export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: Image
 
   const getCroppedImg = async (
     image: HTMLImageElement,
-    pixelCrop: PixelCrop,
-    rotation = 0
+    pixelCrop: PixelCrop
   ): Promise<Blob | null> => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -86,7 +85,7 @@ export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: Image
     if (!imgRef.current || !completedCrop) return
 
     try {
-      const blob = await getCroppedImg(imgRef.current, completedCrop, rotation)
+      const blob = await getCroppedImg(imgRef.current, completedCrop)
       if (blob) {
         onCropComplete(blob)
         onClose()

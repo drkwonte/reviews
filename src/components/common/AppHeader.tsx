@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BookOpen } from 'lucide-react'
+import { LayoutDashboard, BookOpen, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/contexts/AuthContext'
@@ -21,7 +21,8 @@ export function AppHeader() {
 
   const fetchProfile = async () => {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user?.id).single()
+      // profiles 대신 유료화 전용 뷰인 user_plan_status를 참조합니다.
+      const { data } = await supabase.from('user_plan_status').select('*').eq('user_id', user?.id).single()
       if (data) setProfile(data)
     } catch (e) {}
   }
@@ -69,13 +70,30 @@ export function AppHeader() {
               <BookOpen size={18} className={cn("transition-transform group-hover:scale-110", isNotes ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
               <span className="hidden sm:inline">오답노트</span>
             </button>
+
+            {/* 관리자 전용 메뉴 */}
+            {profile?.user_type === 'admin' && (
+              <button 
+                onClick={() => navigate('/admin')} 
+                className={cn(
+                  "flex items-center gap-1.5 md:gap-2 px-2.5 sm:px-4 py-2 rounded-2xl text-sm font-bold transition-all group",
+                  location.pathname === '/admin'
+                    ? "text-rose-500 bg-rose-500/10 shadow-sm" 
+                    : "text-muted-foreground hover:text-rose-500 hover:bg-muted"
+                )}
+                title="관리자 전용"
+              >
+                <ShieldCheck size={18} className={cn("transition-transform group-hover:scale-110", location.pathname === '/admin' ? "text-rose-500" : "text-muted-foreground group-hover:text-rose-500")} />
+                <span className="hidden lg:inline text-rose-500">Admin</span>
+              </button>
+            )}
           </nav>
         </div>
 
         <div className="flex items-center gap-3 md:gap-5">
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-sm font-bold text-foreground tracking-tight">{user?.email?.split('@')[0]} 님</span>
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mt-1">{profile?.plan || 'BASIC'}</span>
+            <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mt-1">{profile?.current_plan || 'BASIC'}</span>
           </div>
           <div className="w-[1px] h-8 bg-border mx-1 hidden sm:block"></div>
           <ThemeToggle />

@@ -11,6 +11,8 @@ import NoteNewPage from '@/pages/NoteNewPage'
 import NoteDetailPage from '@/pages/NoteDetailPage'
 import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
+import AdminDashboardPage from '@/pages/AdminDashboardPage'
+import AdminRoute from '@/components/AdminRoute'
 
 function App() {
   return (
@@ -30,6 +32,11 @@ function App() {
             <Route path="/notes/:id" element={<NoteDetailPage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* 관리자 전용 라우트 */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminDashboardPage />} />
           </Route>
 
           {/* 404 → 랜딩 페이지로 리다이렉트 */}

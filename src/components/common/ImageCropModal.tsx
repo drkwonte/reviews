@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import ReactCrop, { type Crop, centerCrop, makeAspectCrop, PixelCrop } from 'react-image-crop'
+import ReactCrop, { type Crop, PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -12,21 +12,15 @@ interface ImageCropModalProps {
   onCropComplete: (croppedImage: Blob) => void
 }
 
-function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-  const { width, height } = e.currentTarget
-  return centerCrop(
-    makeAspectCrop(
-      {
-        unit: '%',
-        width: 90,
-      },
-      undefined, // No fixed aspect ratio
-      width,
-      height
-    ),
-    width,
-    height
-  )
+function onImageLoad() {
+  const initialCrop: Crop = {
+    unit: '%',
+    x: 5,
+    y: 5,
+    width: 90,
+    height: 90
+  }
+  return initialCrop
 }
 
 export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: ImageCropModalProps) {
@@ -62,9 +56,6 @@ export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: Image
 
     ctx.scale(pixelRatio, pixelRatio)
     ctx.imageSmoothingQuality = 'high'
-
-    const centerX = image.naturalWidth / 2
-    const centerY = image.naturalHeight / 2
 
     ctx.save()
 
@@ -142,7 +133,7 @@ export function ImageCropModal({ image, isOpen, onClose, onCropComplete }: Image
               alt="Crop me"
               src={image}
               style={{ transform: `rotate(${rotation}deg)`, maxHeight: '70vh' }}
-              onLoad={(e) => setCrop(onImageLoad(e))}
+              onLoad={() => setCrop(onImageLoad())}
               className="block max-w-full rounded-lg shadow-lg"
             />
           </ReactCrop>

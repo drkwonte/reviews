@@ -50,12 +50,14 @@ export default function NoteNewPage() {
   const [croppingImage, setCroppingImage] = useState<string | null>(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [croppingType, setCroppingType] = useState<'problem' | 'answer'>('problem')
+  const [croppingIndex, setCroppingIndex] = useState<number>(-1)
 
-  const handleOpenCrop = (imageFile: File, type: 'problem' | 'answer') => {
+  const handleOpenCrop = (imageFile: File, type: 'problem' | 'answer', index: number) => {
     const reader = new FileReader()
     reader.onload = () => {
       setCroppingImage(reader.result as string)
       setCroppingType(type)
+      setCroppingIndex(index)
       setIsCropOpen(true)
     }
     reader.readAsDataURL(imageFile)
@@ -64,12 +66,26 @@ export default function NoteNewPage() {
   const handleCropComplete = (croppedBlob: Blob) => {
     const fileName = `cropped_${Date.now()}.webp`
     const croppedFile = new File([croppedBlob], fileName, { type: 'image/webp' })
+    
     if (croppingType === 'problem') {
-      setProblemImages([croppedFile]) // For now, handle single crop or can extend to multi
+      const newImages = [...problemImages]
+      if (croppingIndex >= 0) {
+        newImages[croppingIndex] = croppedFile
+      } else {
+        newImages.push(croppedFile)
+      }
+      setProblemImages(newImages)
     } else {
-      setAnswerImages([croppedFile])
+      const newImages = [...answerImages]
+      if (croppingIndex >= 0) {
+        newImages[croppingIndex] = croppedFile
+      } else {
+        newImages.push(croppedFile)
+      }
+      setAnswerImages(newImages)
     }
     setIsCropOpen(false)
+    setCroppingIndex(-1)
   }
 
   // Step 1 -> Step 2: 문제 OCR 분석
@@ -334,12 +350,13 @@ export default function NoteNewPage() {
                     <ImageUploader 
                         label="문제 이미지 업로드 (멀티)" 
                         value={problemImages} 
-                        onChange={(files) => {
-                            if (files.length > 0 && files[0] instanceof File) {
-                                handleOpenCrop(files[0], 'problem')
-                            } else {
-                                setProblemImages(files as File[])
+                        onChange={(newFiles) => {
+                            // 기존 개수보다 늘어났을 때만 새로운 파일에 대해 크롭 모달 오픈
+                            if (newFiles.length > problemImages.length) {
+                                const addedFile = newFiles[newFiles.length - 1]; // 마지막에 추가된 파일
+                                handleOpenCrop(addedFile, 'problem', newFiles.length - 1);
                             }
+                            setProblemImages(newFiles as File[]);
                         }} 
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -408,12 +425,12 @@ export default function NoteNewPage() {
                     <ImageUploader 
                       label="정답/풀이 이미지 업로드 (멀티)" 
                       value={answerImages} 
-                      onChange={(files) => {
-                        if (files.length > 0 && files[0] instanceof File) {
-                          handleOpenCrop(files[0], 'answer')
-                        } else {
-                          setAnswerImages(files as File[])
+                      onChange={(newFiles) => {
+                        if (newFiles.length > answerImages.length) {
+                          const addedFile = newFiles[newFiles.length - 1];
+                          handleOpenCrop(addedFile, 'answer', newFiles.length - 1);
                         }
+                        setAnswerImages(newFiles as File[]);
                       }} 
                       aiLabel="AI 풀이 생성" aiDescription="본 문제를 기반으로 자동 생성" onAIAction={handleGenerateAIAnswer}
                     />

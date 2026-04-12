@@ -362,11 +362,8 @@ export default function SettingsPage() {
                     id="acct-email"
                     value={user.email ?? profile.email}
                     disabled
-                    className="rounded-xl bg-muted/40 font-medium"
+                    className="rounded-xl bg-muted/40 font-medium cursor-not-allowed"
                   />
-                  <p className="text-xs text-muted-foreground font-medium">
-                    이메일 변경은 계정 보안 정책상 별도 절차가 필요할 수 있습니다.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="acct-name">이름</Label>
@@ -401,9 +398,6 @@ export default function SettingsPage() {
                       maxLength={64}
                     />
                   )}
-                  <p className="text-xs text-muted-foreground font-medium">
-                    <code className="text-xs">user_level</code> 필드에 저장되며 통계·추천 등에 활용할 수 있습니다.
-                  </p>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-border p-4">
                   <div>

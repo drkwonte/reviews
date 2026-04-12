@@ -35,7 +35,7 @@ interface Note extends RawNoteForExport {
 
 /** Browser `title` tooltip on the list print button (per product copy). */
 const NOTE_LIST_PRINT_BUTTON_HOVER_HINT =
-  '인쇄하려는 문제 카드를 선택한 뒤 버튼을 눌러주세요. 카드 미리보기 왼쪽 아래 「인쇄 포함」으로 선택합니다.'
+  '인쇄하려는 문제 카드를 선택한 뒤 버튼을 눌러주세요. 카드 미리보기 오른쪽 아래 「인쇄 포함」으로 선택합니다.'
 
 const NOTE_EXPORT_SEGMENT_IMAGE_LABEL = '이미지 버전'
 const NOTE_EXPORT_SEGMENT_OCR_LABEL = 'OCR 버전'
@@ -149,7 +149,7 @@ export default function NotesListPage() {
     setPrintSelectedById((prev) => {
       const next: Record<string, boolean> = {}
       for (const n of filteredNotes) {
-        next[n.id] = prev[n.id] !== undefined ? prev[n.id]! : true
+        next[n.id] = prev[n.id] !== undefined ? prev[n.id]! : false
       }
       return next
     })
@@ -164,16 +164,16 @@ export default function NotesListPage() {
     return parts.length > 0 ? parts.join(' · ') : '필터 없음 (목록과 동일)'
   }, [selectedSubject, showFavorites, searchTerm])
 
-  const hasPrintSelection = filteredNotes.some((n) => printSelectedById[n.id] !== false)
+  const hasPrintSelection = filteredNotes.some((n) => printSelectedById[n.id] === true)
 
   const runPrintExport = async () => {
     if (filteredNotes.length === 0) {
       alert('현재 화면에 표시된 오답노트가 없습니다.')
       return
     }
-    const selectedForPrint = filteredNotes.filter((n) => printSelectedById[n.id] !== false)
+    const selectedForPrint = filteredNotes.filter((n) => printSelectedById[n.id] === true)
     if (selectedForPrint.length === 0) {
-      alert('인쇄할 카드를 하나 이상 선택해 주세요. (미리보기 왼쪽 아래 「인쇄 포함」)')
+      alert('인쇄할 카드를 하나 이상 선택해 주세요. (미리보기 오른쪽 아래 「인쇄 포함」)')
       return
     }
     setExportingPrint(true)
@@ -325,23 +325,23 @@ export default function NotesListPage() {
                       </div>
                     )}
                     <div
-                      className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-xl border border-border/90 bg-background/95 px-2.5 py-1.5 shadow-md backdrop-blur-sm"
+                      className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-xl border border-primary/35 bg-background/95 px-2.5 py-1.5 shadow-md shadow-primary/10 ring-1 ring-primary/15 backdrop-blur-sm"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Checkbox
                         id={`print-select-${note.id}`}
-                        checked={printSelectedById[note.id] !== false}
+                        checked={printSelectedById[note.id] === true}
                         onCheckedChange={(checked) =>
                           setPrintSelectedById((prev) => ({
                             ...prev,
                             [note.id]: checked === true,
                           }))
                         }
-                        className="border-border"
+                        className="border-primary/60 data-[state=unchecked]:border-primary/50"
                       />
                       <Label
                         htmlFor={`print-select-${note.id}`}
-                        className="cursor-pointer text-[9px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
+                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-primary leading-none whitespace-nowrap"
                       >
                         {NOTE_CARD_PRINT_INCLUDE_LABEL}
                       </Label>

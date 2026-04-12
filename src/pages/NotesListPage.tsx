@@ -9,7 +9,6 @@ import {
   Star,
   Trash2,
   Printer,
-  FileDown,
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -153,14 +152,14 @@ export default function NotesListPage() {
 
   const hasPrintSelection = filteredNotes.some((n) => printIncludeById[n.id] !== false)
 
-  const runPrintOrPdfExport = async () => {
+  const runPrintExport = async () => {
     if (filteredNotes.length === 0) {
       alert('현재 화면에 표시된 오답노트가 없습니다.')
       return
     }
     const selected = filteredNotes.filter((n) => printIncludeById[n.id] !== false)
     if (selected.length === 0) {
-      alert('인쇄·PDF에 포함할 오답노트를 하나 이상 선택해 주세요.')
+      alert('인쇄에 포함할 오답노트를 하나 이상 선택해 주세요.')
       return
     }
     setExportingPrint(true)
@@ -199,8 +198,8 @@ export default function NotesListPage() {
                 variant="outline"
                 className="rounded-2xl font-black border-border h-12 px-4"
                 disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
-                title="시스템 프린터로 출력합니다."
-                onClick={() => void runPrintOrPdfExport()}
+                title="프린터로 출력하거나, 인쇄 창에서 대상을 PDF로 저장으로 바꿔 PDF 파일을 만들 수 있습니다."
+                onClick={() => void runPrintExport()}
               >
                 {exportingPrint ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -208,21 +207,6 @@ export default function NotesListPage() {
                   <Printer className="mr-2 h-5 w-5" />
                 )}
                 인쇄
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-2xl font-black border-border h-12 px-4"
-                disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
-                title="인쇄 창에서 프린터 대신 PDF로 저장을 선택할 수 있습니다."
-                onClick={() => void runPrintOrPdfExport()}
-              >
-                {exportingPrint ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <FileDown className="mr-2 h-5 w-5" />
-                )}
-                PDF
               </Button>
             </div>
             <Button

@@ -1,12 +1,16 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { 
-  Plus, 
-  Search, 
-  ChevronRight, 
+import { format } from 'date-fns'
+import {
+  Plus,
+  Search,
+  ChevronRight,
   BookOpen,
   Star,
-  Trash2
+  Trash2,
+  Printer,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,19 +20,15 @@ import { AppHeader } from '@/components/common/AppHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import {
+  prepareNotesForPrintExport,
+  buildNotesPrintHtml,
+  openNotesPrintWindow,
+  type RawNoteForExport,
+} from '@/lib/noteExportPrint'
 
-interface Note {
-  id: string
-  subject: string
-  category?: string
-  source?: string
-  created_at: string
-  accuracy?: number
-  review_count?: number
+interface Note extends RawNoteForExport {
   success_count?: number
-  is_favorite: boolean
-  problem_url?: string
-  problem_text?: string
 }
 
 export default function NotesListPage() {
@@ -42,6 +42,7 @@ export default function NotesListPage() {
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') || '전체')
   const [sortBy] = useState('latest')
   const [showFavorites, setShowFavorites] = useState(false)
+  const [exportingPrint, setExportingPrint] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -114,6 +115,36 @@ export default function NotesListPage() {
     return result
   }, [notes, searchTerm, selectedSubject, sortBy, showFavorites])
 
+  const filterSummaryForExport = useMemo(() => {
+    const parts: string[] = []
+    if (selectedSubject !== '전체') parts.push(`과목: ${selectedSubject}`)
+    if (showFavorites) parts.push('중요 표시만')
+    const q = searchTerm.trim()
+    if (q) parts.push(`검색: "${q}"`)
+    return parts.length > 0 ? parts.join(' · ') : '필터 없음 (목록과 동일)'
+  }, [selectedSubject, showFavorites, searchTerm])
+
+  const handlePrintOrPdfExport = async () => {
+    if (filteredNotes.length === 0) {
+      alert('현재 화면에 표시된 오답노트가 없습니다.')
+      return
+    }
+    setExportingPrint(true)
+    try {
+      const prepared = await prepareNotesForPrintExport(filteredNotes as RawNoteForExport[])
+      const html = buildNotesPrintHtml(prepared, {
+        titleLine: 'nextime 오답노트',
+        filterLine: filterSummaryForExport,
+        exportedAt: format(new Date(), 'yyyy-MM-dd HH:mm'),
+      })
+      openNotesPrintWindow(html)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : '보내기에 실패했습니다.')
+    } finally {
+      setExportingPrint(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden transition-colors duration-300">
       <AppHeader />
@@ -124,9 +155,46 @@ export default function NotesListPage() {
             <h1 className="text-4xl font-black text-foreground tracking-tighter mb-2 uppercase">오답노트</h1>
             <p className="text-muted-foreground font-bold tracking-tight">기록된 오답을 체계적으로 분석하세요</p>
           </div>
-          <Button onClick={() => navigate('/notes/new')} className="bg-primary hover:bg-primary/90 text-white px-8 py-7 rounded-2xl shadow-xl shadow-primary/10 dark:shadow-none font-black text-lg h-auto transition-all hover:scale-[1.02]">
-            <Plus className="mr-2 h-6 w-6" strokeWidth={3} /> 새 오답노트 등록
-          </Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+            <div className="flex gap-2 justify-center sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-2xl font-black border-border h-12 px-4"
+                disabled={exportingPrint || filteredNotes.length === 0}
+                title="시스템 프린터로 출력합니다."
+                onClick={() => void handlePrintOrPdfExport()}
+              >
+                {exportingPrint ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Printer className="mr-2 h-5 w-5" />
+                )}
+                인쇄
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-2xl font-black border-border h-12 px-4"
+                disabled={exportingPrint || filteredNotes.length === 0}
+                title="인쇄 창에서 프린터 대신 PDF로 저장을 선택할 수 있습니다."
+                onClick={() => void handlePrintOrPdfExport()}
+              >
+                {exportingPrint ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <FileDown className="mr-2 h-5 w-5" />
+                )}
+                PDF
+              </Button>
+            </div>
+            <Button
+              onClick={() => navigate('/notes/new')}
+              className="bg-primary hover:bg-primary/90 text-white px-8 py-7 rounded-2xl shadow-xl shadow-primary/10 dark:shadow-none font-black text-lg h-auto transition-all hover:scale-[1.02]"
+            >
+              <Plus className="mr-2 h-6 w-6" strokeWidth={3} /> 새 오답노트 등록
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">

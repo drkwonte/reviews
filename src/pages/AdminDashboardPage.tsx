@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { 
   Database, 
   Bell, 
@@ -36,18 +36,43 @@ import {
   SheetContent, 
 } from '@/components/ui/sheet'
 import { AppHeader } from '@/components/common/AppHeader'
+import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import {
+  insertGlobalNotification,
+  insertTargetedNotifications,
+  NOTIFICATION_TITLE_MAX_LENGTH,
+  NOTIFICATION_LINK_MAX_LENGTH,
+} from '@/services/adminNotifications'
 import { format } from 'date-fns'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
+type BroadcastAudience = 'global' | 'selected'
+
 export default function AdminDashboardPage() {
+  const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState('overview')
   const [stats, setStats] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [settings, setSettings] = useState<any[]>([])
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [userPayments, setUserPayments] = useState<any[]>([])
   const [isDetailLoading, setIsDetailLoading] = useState(false)
+
+  const [broadcastAudience, setBroadcastAudience] = useState<BroadcastAudience>('global')
+  const [announcementTitle, setAnnouncementTitle] = useState('')
+  const [announcementBody, setAnnouncementBody] = useState('')
+  const [announcementLink, setAnnouncementLink] = useState('')
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<Set<string>>(() => new Set())
+  const [isSendingNotice, setIsSendingNotice] = useState(false)
+
+  const [sheetNoticeTitle, setSheetNoticeTitle] = useState('')
+  const [sheetNoticeBody, setSheetNoticeBody] = useState('')
+  const [isSheetNoticeSending, setIsSheetNoticeSending] = useState(false)
 
   useEffect(() => {
     fetchAdminData()
@@ -114,6 +139,94 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const toggleRecipient = useCallback((userId: string, checked: boolean) => {
+    setSelectedRecipientIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(userId)
+      else next.delete(userId)
+      return next
+    })
+  }, [])
+
+  const selectAllRecipients = useCallback(() => {
+    setSelectedRecipientIds(new Set(users.map((u) => String(u.user_id))))
+  }, [users])
+
+  const clearRecipientSelection = useCallback(() => {
+    setSelectedRecipientIds(new Set())
+  }, [])
+
+  useEffect(() => {
+    if (selectedUser?.user_id) {
+      setSheetNoticeTitle('')
+      setSheetNoticeBody('')
+    }
+  }, [selectedUser?.user_id])
+
+  const handleSendBroadcast = async () => {
+    if (!user?.id) {
+      alert('로그인 정보를 확인할 수 없습니다.')
+      return
+    }
+    setIsSendingNotice(true)
+    try {
+      const payload = {
+        title: announcementTitle,
+        body: announcementBody,
+        link: announcementLink.trim() || null,
+        sentBy: user.id,
+      }
+      if (broadcastAudience === 'global') {
+        await insertGlobalNotification(payload, 'system')
+        alert('전체 공지가 등록되었습니다.')
+        setAnnouncementTitle('')
+        setAnnouncementBody('')
+        setAnnouncementLink('')
+      } else {
+        const ids = [...selectedRecipientIds]
+        await insertTargetedNotifications(ids, payload, 'personal')
+        alert(`${ids.length}명에게 공지를 보냈습니다.`)
+        setAnnouncementTitle('')
+        setAnnouncementBody('')
+        setAnnouncementLink('')
+        clearRecipientSelection()
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '알 수 없는 오류'
+      alert(`발송 실패: ${message}`)
+    } finally {
+      setIsSendingNotice(false)
+    }
+  }
+
+  const handleSendSheetNotice = async () => {
+    if (!user?.id || !selectedUser?.user_id) {
+      alert('대상 회원 또는 로그인 정보를 확인할 수 없습니다.')
+      return
+    }
+    setIsSheetNoticeSending(true)
+    try {
+      await insertTargetedNotifications(
+        [String(selectedUser.user_id)],
+        {
+          title: sheetNoticeTitle,
+          body: sheetNoticeBody,
+          link: null,
+          sentBy: user.id,
+        },
+        'personal',
+      )
+      alert('해당 회원에게 공지를 보냈습니다.')
+      setSheetNoticeTitle('')
+      setSheetNoticeBody('')
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '알 수 없는 오류'
+      alert(`발송 실패: ${message}`)
+    } finally {
+      setIsSheetNoticeSending(false)
+    }
+  }
+
   const chartData = useMemo(() => {
     return stats.map(s => ({
       date: format(new Date(s.stat_date), 'MM/dd'),
@@ -160,7 +273,7 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <TabsList className="bg-card border border-border p-1.5 rounded-2xl h-14 w-full md:w-auto overflow-x-auto overflow-y-hidden">
             <TabsTrigger value="overview" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">실시간 지표</TabsTrigger>
             <TabsTrigger value="users" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">회원 관리</TabsTrigger>
@@ -264,11 +377,54 @@ export default function AdminDashboardPage() {
           </TabsContent>
 
           <TabsContent value="users">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <p className="text-sm font-bold text-muted-foreground">
+                공지 수신자로 선택된 회원:{' '}
+                <span className="text-foreground">{selectedRecipientIds.size}</span>명
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl font-bold"
+                  onClick={selectAllRecipients}
+                  disabled={users.length === 0}
+                >
+                  전체 선택
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl font-bold"
+                  onClick={clearRecipientSelection}
+                  disabled={selectedRecipientIds.size === 0}
+                >
+                  선택 해제
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="rounded-xl font-bold bg-primary text-primary-foreground"
+                  disabled={selectedRecipientIds.size === 0}
+                  onClick={() => {
+                    setBroadcastAudience('selected')
+                    setActiveTab('notifications')
+                  }}
+                >
+                  공지 탭에서 발송 ({selectedRecipientIds.size}명)
+                </Button>
+              </div>
+            </div>
             <Card className="border border-border shadow-xl rounded-[2.5rem] overflow-hidden bg-card">
               <CardContent className="p-0">
                 <Table>
                   <TableHeader className="bg-muted/50 h-16">
                     <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-12 px-4 font-black text-xs uppercase text-center text-foreground/70">
+                        선택
+                      </TableHead>
                       <TableHead className="font-black text-xs uppercase px-8 text-foreground/70">사용자 정보</TableHead>
                       <TableHead className="font-black text-xs uppercase text-center text-foreground/70">플랜 및 상태</TableHead>
                       <TableHead className="font-black text-xs uppercase text-center text-foreground/70">노트 / 용량</TableHead>
@@ -287,6 +443,18 @@ export default function AdminDashboardPage() {
                           fetchUserDetails(u.user_id)
                         }}
                       >
+                        <TableCell
+                          className="w-12 px-4 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-center">
+                            <Checkbox
+                              checked={selectedRecipientIds.has(String(u.user_id))}
+                              onCheckedChange={(v) => toggleRecipient(String(u.user_id), v === true)}
+                              aria-label={`${u.name} 공지 수신자 선택`}
+                            />
+                          </div>
+                        </TableCell>
                         <TableCell className="px-8">
                           <div className="flex flex-col">
                             <span className="font-bold text-foreground group-hover:text-primary transition-colors">{u.name}</span>
@@ -375,29 +543,154 @@ export default function AdminDashboardPage() {
           </TabsContent>
 
           <TabsContent value="notifications">
-             <Card className="max-w-2xl border border-border shadow-xl rounded-[2.5rem] bg-card p-10 mx-auto">
-               <CardHeader className="px-0 pt-0 pb-8 border-b border-border">
-                  <CardTitle className="text-2xl font-black flex items-center gap-3">
-                    <Bell className="h-8 w-8 text-primary" /> 전송 센터
-                  </CardTitle>
-               </CardHeader>
-               <CardContent className="px-0 pt-8 space-y-8">
-                 <div className="space-y-3">
-                   <span className="text-sm font-black text-muted-foreground uppercase tracking-wider">공지 제목</span>
-                   <Input placeholder="사용자에게 보낼 제목을 입력하세요" className="h-14 rounded-2xl bg-muted/20 border-border" />
-                 </div>
-                 <div className="space-y-3">
-                   <span className="text-sm font-black text-muted-foreground uppercase tracking-wider">내용</span>
-                   <textarea 
-                     placeholder="전송할 상세 메시지를 작성하세요" 
-                     className="w-full min-h-[200px] rounded-2xl bg-muted/20 border-border p-6 text-foreground resize-none border focus:ring-2 focus:ring-primary outline-none transition-all"
-                   />
-                 </div>
-                 <Button className="w-full h-16 rounded-2xl bg-foreground text-background font-black text-lg hover:opacity-90 shadow-2xl">
-                   <MessageSquare className="mr-2 h-6 w-6" /> 전체 공지 발송하기
-                 </Button>
-               </CardContent>
-             </Card>
+            <Card className="max-w-2xl border border-border shadow-xl rounded-[2.5rem] bg-card p-10 mx-auto">
+              <CardHeader className="px-0 pt-0 pb-8 border-b border-border">
+                <CardTitle className="text-2xl font-black flex items-center gap-3">
+                  <Bell className="h-8 w-8 text-primary" /> 전송 센터
+                </CardTitle>
+                <p className="text-sm text-muted-foreground font-medium mt-2">
+                  전체 공지는 모든 회원에게, 선택 공지는 회원 관리에서 체크한 회원에게만 전달됩니다.
+                </p>
+              </CardHeader>
+              <CardContent className="px-0 pt-8 space-y-8">
+                <div className="space-y-3">
+                  <span className="text-sm font-black text-muted-foreground uppercase tracking-wider">
+                    수신 대상
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={broadcastAudience === 'global' ? 'default' : 'outline'}
+                      className="rounded-xl font-bold"
+                      onClick={() => setBroadcastAudience('global')}
+                    >
+                      전체 회원
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={broadcastAudience === 'selected' ? 'default' : 'outline'}
+                      className="rounded-xl font-bold"
+                      onClick={() => setBroadcastAudience('selected')}
+                    >
+                      선택한 회원만 ({selectedRecipientIds.size}명)
+                    </Button>
+                  </div>
+                  {broadcastAudience === 'selected' && (
+                    <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-muted-foreground">
+                          아래에서 수신자를 고르거나, 회원 관리 탭에서 선택할 수 있습니다.
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="font-bold"
+                            onClick={selectAllRecipients}
+                            disabled={users.length === 0}
+                          >
+                            전체 선택
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="font-bold"
+                            onClick={clearRecipientSelection}
+                            disabled={selectedRecipientIds.size === 0}
+                          >
+                            해제
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto rounded-xl border border-border/60 bg-card divide-y divide-border/50">
+                        {users.length === 0 ? (
+                          <p className="p-4 text-sm text-muted-foreground font-medium">회원 목록이 없습니다.</p>
+                        ) : (
+                          users.map((u) => {
+                            const id = String(u.user_id)
+                            return (
+                              <label
+                                key={id}
+                                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40"
+                              >
+                                <Checkbox
+                                  checked={selectedRecipientIds.has(id)}
+                                  onCheckedChange={(v) => toggleRecipient(id, v === true)}
+                                />
+                                <span className="text-sm font-bold text-foreground">{u.name}</span>
+                                <span className="text-xs text-muted-foreground truncate">{u.email}</span>
+                              </label>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="notice-title" className="text-sm font-black text-muted-foreground uppercase tracking-wider">
+                    공지 제목
+                  </Label>
+                  <Input
+                    id="notice-title"
+                    placeholder="사용자에게 보낼 제목을 입력하세요"
+                    className="h-14 rounded-2xl bg-muted/20 border-border"
+                    maxLength={NOTIFICATION_TITLE_MAX_LENGTH}
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  />
+                  <p className="text-[10px] text-muted-foreground font-bold">
+                    {announcementTitle.length} / {NOTIFICATION_TITLE_MAX_LENGTH}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="notice-body" className="text-sm font-black text-muted-foreground uppercase tracking-wider">
+                    내용
+                  </Label>
+                  <Textarea
+                    id="notice-body"
+                    placeholder="전송할 상세 메시지를 작성하세요"
+                    className="min-h-[200px] rounded-2xl bg-muted/20 border-border p-6 text-foreground resize-none focus-visible:ring-primary"
+                    value={announcementBody}
+                    onChange={(e) => setAnnouncementBody(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="notice-link" className="text-sm font-black text-muted-foreground uppercase tracking-wider">
+                    링크 (선택)
+                  </Label>
+                  <Input
+                    id="notice-link"
+                    placeholder="https://..."
+                    className="h-12 rounded-2xl bg-muted/20 border-border"
+                    maxLength={NOTIFICATION_LINK_MAX_LENGTH}
+                    value={announcementLink}
+                    onChange={(e) => setAnnouncementLink(e.target.value)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="w-full h-16 rounded-2xl bg-foreground text-background font-black text-lg hover:opacity-90 shadow-2xl disabled:opacity-60"
+                  disabled={
+                    isSendingNotice ||
+                    (broadcastAudience === 'selected' && selectedRecipientIds.size === 0)
+                  }
+                  onClick={handleSendBroadcast}
+                >
+                  <MessageSquare className="mr-2 h-6 w-6" />
+                  {broadcastAudience === 'global'
+                    ? isSendingNotice
+                      ? '발송 중...'
+                      : '전체 공지 발송하기'
+                    : isSendingNotice
+                      ? '발송 중...'
+                      : `선택한 ${selectedRecipientIds.size}명에게 발송`}
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -526,7 +819,55 @@ export default function AdminDashboardPage() {
               )}
             </div>
 
-            <Button className="w-full h-20 rounded-3xl bg-foreground text-background font-black text-xl hover:scale-[1.02] active:scale-95 transition-all shadow-2xl mt-10">
+            <Separator className="opacity-50" />
+
+            <div className="space-y-6">
+              <h3 className="text-2xl font-black flex items-center gap-3">
+                <Bell className="text-primary h-6 w-6" /> 이 회원에게 공지
+              </h3>
+              <p className="text-sm text-muted-foreground font-medium">
+                이 회원에게만 보이는 알림을 보냅니다. (다른 회원에게는 표시되지 않습니다.)
+              </p>
+              <div className="space-y-3">
+                <Label htmlFor="sheet-notice-title" className="text-xs font-black uppercase text-muted-foreground">
+                  제목
+                </Label>
+                <Input
+                  id="sheet-notice-title"
+                  className="h-12 rounded-2xl bg-muted/20 border-border"
+                  maxLength={NOTIFICATION_TITLE_MAX_LENGTH}
+                  value={sheetNoticeTitle}
+                  onChange={(e) => setSheetNoticeTitle(e.target.value)}
+                  placeholder="공지 제목"
+                />
+              </div>
+              <div className="space-y-3">
+                <Label htmlFor="sheet-notice-body" className="text-xs font-black uppercase text-muted-foreground">
+                  내용
+                </Label>
+                <Textarea
+                  id="sheet-notice-body"
+                  className="min-h-[120px] rounded-2xl bg-muted/20 border-border resize-none"
+                  value={sheetNoticeBody}
+                  onChange={(e) => setSheetNoticeBody(e.target.value)}
+                  placeholder="전달할 메시지"
+                />
+              </div>
+              <Button
+                type="button"
+                className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base hover:opacity-95 disabled:opacity-50"
+                disabled={isSheetNoticeSending}
+                onClick={handleSendSheetNotice}
+              >
+                {isSheetNoticeSending ? '발송 중...' : '이 회원에게 공지 보내기'}
+              </Button>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-20 rounded-3xl font-black text-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/20 mt-4"
+            >
               <ExternalLink className="mr-3 h-7 w-7" /> 회원 상세 로그 분석 (Advanced)
             </Button>
           </div>

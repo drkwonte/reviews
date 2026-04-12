@@ -204,7 +204,7 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       const problemTotal = row.problemImageUrlsForPrint.length
       const problemImgs =
         problemTotal > 0
-          ? `<div class="img-block"><span class="label">문제${problemTotal > 1 ? ` (${problemTotal}장)` : ''}</span>${row.problemImageUrlsForPrint
+          ? `<span class="img-section-label">문제${problemTotal > 1 ? ` (${problemTotal}장)` : ''}</span>${row.problemImageUrlsForPrint
               .map(
                 (url, imgIndex) =>
                   `<figure class="img-fig"><img src="${escapeAttr(url)}" alt="문제 이미지 ${imgIndex + 1}/${problemTotal}" />${
@@ -213,7 +213,7 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
                       : ''
                   }</figure>`,
               )
-              .join('')}</div>`
+              .join('')}`
           : ''
 
       const problemText =
@@ -231,14 +231,14 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       const answerTotal = row.answerImageUrlsForPrint.length
       const answerImgs =
         answerTotal > 0
-          ? `<div class="img-block"><span class="label">정답·해설${answerTotal > 1 ? ` (${answerTotal}장)` : ''}</span>${row.answerImageUrlsForPrint
+          ? `<span class="img-section-label">정답·해설${answerTotal > 1 ? ` (${answerTotal}장)` : ''}</span>${row.answerImageUrlsForPrint
               .map(
                 (url, imgIndex) =>
                   `<figure class="img-fig"><img src="${escapeAttr(url)}" alt="정답 이미지 ${imgIndex + 1}/${answerTotal}" />${
                     answerTotal > 1 ? `<figcaption>${imgIndex + 1} / ${answerTotal}</figcaption>` : ''
                   }</figure>`,
               )
-              .join('')}</div>`
+              .join('')}`
           : ''
 
       const answerText =
@@ -337,30 +337,37 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       column-rule: 1px solid #ddd;
       column-fill: balance;
     }
-    .img-block {
+    .img-section-label {
+      display: block;
       column-span: all;
       -webkit-column-span: all;
-      margin: 8px 0 12px;
-      text-align: center;
-      background: #f5f5f5;
-      padding: 8px;
-      border-radius: 6px;
-    }
-    .img-block .label {
-      display: block;
       font-size: 10px;
       font-weight: 700;
       color: #333;
-      margin-bottom: 6px;
+      margin: 10px 0 8px;
       text-align: left;
     }
-    .img-fig { margin: 0 0 10px; }
-    .img-fig:last-child { margin-bottom: 0; }
-    .img-fig img {
-      max-width: 100%;
+    .note-print-columns > .img-section-label:first-child {
+      margin-top: 0;
+    }
+    .img-fig {
+      display: block;
       width: 100%;
+      max-width: 100%;
+      margin: 0 0 10px;
+      padding: 6px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      text-align: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .img-fig img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
       height: auto;
-      vertical-align: middle;
+      margin: 0 auto;
     }
     .img-fig figcaption {
       font-size: 9px;
@@ -369,8 +376,6 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       text-align: center;
     }
     .empty-line {
-      column-span: all;
-      -webkit-column-span: all;
       font-size: 10px;
       color: #888;
       margin: 8px 0;
@@ -380,8 +385,6 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       display: contents;
     }
     .text-block .label {
-      column-span: all;
-      -webkit-column-span: all;
       display: block;
       font-size: 10px;
       font-weight: 700;

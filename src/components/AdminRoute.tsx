@@ -1,10 +1,12 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 export default function AdminRoute() {
-  const { session, profile, loading } = useAuth()
+  const { session, loading: authLoading } = useAuth()
+  const { isAdmin, loading: adminLoading } = useIsAdmin(session?.user?.id)
 
-  if (loading) {
+  if (authLoading || (session && adminLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -15,8 +17,7 @@ export default function AdminRoute() {
     )
   }
 
-  // 세션이 없거나 관리자 권한이 없으면 돌려보냄
-  if (!session || profile?.user_type !== 'admin') {
+  if (!session || !isAdmin) {
     return <Navigate to="/" replace />
   }
 

@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { cn } from '@/lib/utils'
 
 export function AppHeader() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, profile: authProfile, signOut } = useAuth()
+  const { isAdmin: hasAdminAccess, loading: adminRoleLoading } = useIsAdmin(user?.id)
   const [planInfo, setPlanInfo] = useState<any>(null)
 
   useEffect(() => {
@@ -31,10 +33,7 @@ export function AppHeader() {
 
   const isDashboard = location.pathname === '/dashboard'
   const isNotes = location.pathname.startsWith('/notes')
-  const isAdmin = location.pathname === '/admin'
-
-  // authProfile에 user_type 정보가 우선순위를 갖습니다.
-  const userType = authProfile?.user_type || planInfo?.user_type
+  const isAdminRoute = location.pathname === '/admin'
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 transition-all duration-300">
@@ -78,19 +77,19 @@ export function AppHeader() {
             </button>
 
             {/* 관리자 전용 비밀 메뉴 - Rose 색상으로 강조 */}
-            {userType === 'admin' && (
+            {user && !adminRoleLoading && hasAdminAccess && (
               <button 
                 onClick={() => navigate('/admin')} 
                 className={cn(
                   "flex items-center gap-1.5 md:gap-2 px-2.5 sm:px-4 py-2 rounded-2xl text-sm font-extrabold transition-all group animate-in fade-in slide-in-from-left-2 duration-500",
-                  isAdmin
+                  isAdminRoute
                     ? "text-rose-500 bg-rose-500/10 shadow-inner" 
                     : "text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5"
                 )}
                 title="시스템 관리 사령실"
               >
-                <ShieldCheck size={18} className={cn("transition-transform group-hover:scale-110", isAdmin ? "text-rose-500" : "text-muted-foreground group-hover:text-rose-500")} />
-                <span className={cn("hidden sm:inline transition-colors", isAdmin ? "text-rose-500" : "group-hover:text-rose-500")}>Admin</span>
+                <ShieldCheck size={18} className={cn("transition-transform group-hover:scale-110", isAdminRoute ? "text-rose-500" : "text-muted-foreground group-hover:text-rose-500")} />
+                <span className={cn("hidden sm:inline transition-colors", isAdminRoute ? "text-rose-500" : "group-hover:text-rose-500")}>Admin</span>
               </button>
             )}
           </nav>

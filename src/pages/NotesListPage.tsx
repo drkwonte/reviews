@@ -191,29 +191,27 @@ export default function NotesListPage() {
             <h1 className="text-4xl font-black text-foreground tracking-tighter mb-2 uppercase">오답노트</h1>
             <p className="text-muted-foreground font-bold tracking-tight">기록된 오답을 체계적으로 분석하세요</p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <div className="flex gap-2 justify-center sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-2xl font-black border-border h-12 px-4"
-                disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
-                title="프린터로 출력하거나, 인쇄 창에서 대상을 PDF로 저장으로 바꿔 PDF 파일을 만들 수 있습니다."
-                onClick={() => void runPrintExport()}
-              >
-                {exportingPrint ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <Printer className="mr-2 h-5 w-5" />
-                )}
-                인쇄
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 w-full md:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-2xl font-black border-border h-12 px-4"
+              disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
+              title="프린터로 출력하거나, 인쇄 창에서 대상을 PDF로 저장으로 바꿔 PDF 파일을 만들 수 있습니다."
+              onClick={() => void runPrintExport()}
+            >
+              {exportingPrint ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-5 w-5" />
+              )}
+              인쇄
+            </Button>
             <Button
               onClick={() => navigate('/notes/new')}
-              className="bg-primary hover:bg-primary/90 text-white px-8 py-7 rounded-2xl shadow-xl shadow-primary/10 dark:shadow-none font-black text-lg h-auto transition-all hover:scale-[1.02]"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl font-black h-12 px-4 shadow-sm shadow-primary/10 dark:shadow-none"
             >
-              <Plus className="mr-2 h-6 w-6" strokeWidth={3} /> 새 오답노트 등록
+              <Plus className="mr-2 h-5 w-5" strokeWidth={2.5} /> 새 오답노트 등록
             </Button>
           </div>
         </div>

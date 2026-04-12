@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { History, RefreshCw, ChevronDown, Eye, Users, Globe } from 'lucide-react'
+import { History, ChevronDown, Eye, Users, Globe } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -133,27 +133,15 @@ export function AdminSentNotificationsPanel({ reloadSignal }: AdminSentNotificat
 
   return (
     <Card className="border border-border shadow-xl rounded-[2.5rem] overflow-hidden bg-card">
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-border p-8">
-        <div>
-          <CardTitle className="text-2xl font-black flex items-center gap-3">
-            <History className="h-8 w-8 text-primary" />
-            발송 기록
-          </CardTitle>
-          <p className="text-sm text-muted-foreground font-medium mt-2">
-            최근 {SENT_NOTIFICATION_FETCH_LIMIT}건까지 표시합니다. 동일 시각·내용으로 보낸 다건은 한 줄로 묶어
-            대상만 펼쳐 볼 수 있습니다.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 rounded-xl font-bold gap-2"
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-          새로고침
-        </Button>
+      <CardHeader className="border-b border-border p-8">
+        <CardTitle className="text-2xl font-black flex items-center gap-3">
+          <History className="h-8 w-8 text-primary" />
+          발송 기록
+        </CardTitle>
+        <p className="text-sm text-muted-foreground font-medium mt-2">
+          최근 {SENT_NOTIFICATION_FETCH_LIMIT}건까지 표시합니다. 동일 시각·내용으로 보낸 다건은 한 줄로 묶어 대상만 펼쳐 볼 수
+          있습니다. 목록을 다시 불러오려면 브라우저 새로고침을 사용하세요.
+        </p>
       </CardHeader>
       <CardContent className="p-0">
         {errorMessage && (

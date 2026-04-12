@@ -180,20 +180,22 @@ export default function AdminDashboardPage() {
       }
       if (broadcastAudience === 'global') {
         await insertGlobalNotification(payload, 'system')
-        alert('전체 공지가 등록되었습니다.')
         setAnnouncementTitle('')
         setAnnouncementBody('')
         setAnnouncementLink('')
         setNotificationLogReloadKey((k) => k + 1)
+        setActiveTab('notification-history')
+        alert('전체 공지가 등록되었습니다. 발송 기록에서 확인할 수 있습니다.')
       } else {
         const ids = [...selectedRecipientIds]
         await insertTargetedNotifications(ids, payload, 'personal')
-        alert(`${ids.length}명에게 공지를 보냈습니다.`)
         setAnnouncementTitle('')
         setAnnouncementBody('')
         setAnnouncementLink('')
         clearRecipientSelection()
         setNotificationLogReloadKey((k) => k + 1)
+        setActiveTab('notification-history')
+        alert(`${ids.length}명에게 공지를 보냈습니다. 발송 기록에서 확인할 수 있습니다.`)
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : '알 수 없는 오류'
@@ -220,10 +222,12 @@ export default function AdminDashboardPage() {
         },
         'personal',
       )
-      alert('해당 회원에게 공지를 보냈습니다.')
       setSheetNoticeTitle('')
       setSheetNoticeBody('')
       setNotificationLogReloadKey((k) => k + 1)
+      setSelectedUser(null)
+      setActiveTab('notification-history')
+      alert('해당 회원에게 공지를 보냈습니다. 발송 기록에서 확인할 수 있습니다.')
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : '알 수 없는 오류'
       alert(`발송 실패: ${message}`)
@@ -266,16 +270,11 @@ export default function AdminDashboardPage() {
       <AppHeader />
 
       <div className="container py-10 px-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-10">
-          <div>
-            <h1 className="text-4xl font-black text-foreground tracking-tight mb-2 uppercase flex items-center gap-3">
-              <ShieldCheck className="h-10 w-10 text-rose-500" /> Admin Control
-            </h1>
-            <p className="text-muted-foreground font-bold tracking-tight">서비스 관리 및 시스템 통합 대시보드</p>
-          </div>
-          <Button variant="outline" onClick={fetchAdminData} className="h-12 px-6 rounded-xl border-border hover:bg-muted font-bold">
-            새로고침
-          </Button>
+        <div className="mb-10">
+          <h1 className="text-4xl font-black text-foreground tracking-tight mb-2 uppercase flex items-center gap-3">
+            <ShieldCheck className="h-10 w-10 text-rose-500" /> Admin Control
+          </h1>
+          <p className="text-muted-foreground font-bold tracking-tight">서비스 관리 및 시스템 통합 대시보드</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">

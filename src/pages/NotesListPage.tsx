@@ -331,10 +331,10 @@ export default function NotesListPage() {
                   </div>
 
                   <div
-                    className="px-6 pt-3 pb-2 space-y-2 border-t border-border/70 bg-muted/20"
+                    className="px-6 pt-3 pb-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 bg-muted/20"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Checkbox
                         id={`print-include-${note.id}`}
                         checked={printIncludeById[note.id] !== false}
@@ -348,12 +348,12 @@ export default function NotesListPage() {
                       />
                       <Label
                         htmlFor={`print-include-${note.id}`}
-                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none"
+                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
                       >
                         인쇄/보내기
                       </Label>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Checkbox
                         id={`print-image-first-${note.id}`}
                         checked={printImageFirstById[note.id] !== false}
@@ -367,7 +367,7 @@ export default function NotesListPage() {
                       />
                       <Label
                         htmlFor={`print-image-first-${note.id}`}
-                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none"
+                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
                       >
                         이미지 위주
                       </Label>

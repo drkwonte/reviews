@@ -17,6 +17,8 @@ interface AuthContextType {
   user: User | null
   profile: Profile | null
   loading: boolean
+  /** profiles 등 외부에서 갱신 후 UI와 동기화 */
+  refreshProfile: () => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<void>
   /**
@@ -42,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('id', userId)
       .single()
     if (data) setProfile(data as Profile)
+  }
+
+  const refreshProfile = async () => {
+    const { data: { session: s } } = await supabase.auth.getSession()
+    const uid = s?.user?.id
+    if (uid) await fetchProfile(uid)
   }
 
   useEffect(() => {
@@ -110,7 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user,
+        profile,
+        loading,
+        refreshProfile,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

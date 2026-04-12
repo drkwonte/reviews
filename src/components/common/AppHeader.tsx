@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, BookOpen, ShieldCheck, UserCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/contexts/AuthContext'
@@ -33,6 +33,7 @@ export function AppHeader() {
 
   const isDashboard = location.pathname === '/dashboard'
   const isNotes = location.pathname.startsWith('/notes')
+  const isAccount = location.pathname === '/settings'
   const isAdminRoute = location.pathname === '/admin'
 
   return (
@@ -74,6 +75,26 @@ export function AppHeader() {
             >
               <BookOpen size={18} className={cn("transition-transform group-hover:scale-110", isNotes ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
               <span className="hidden sm:inline">오답노트</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              className={cn(
+                'flex items-center gap-1.5 md:gap-2 px-2.5 sm:px-4 py-2 rounded-2xl text-sm font-bold transition-all group',
+                isAccount
+                  ? 'text-primary bg-primary/10 shadow-sm'
+                  : 'text-muted-foreground hover:text-primary hover:bg-muted',
+              )}
+              title="내 계정"
+            >
+              <UserCircle
+                size={18}
+                className={cn(
+                  'transition-transform group-hover:scale-110',
+                  isAccount ? 'text-primary' : 'text-muted-foreground group-hover:text-primary',
+                )}
+              />
+              <span className="hidden sm:inline">내 계정</span>
             </button>
 
             {/* 관리자 전용 비밀 메뉴 - Rose 색상으로 강조 */}

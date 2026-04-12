@@ -8,6 +8,11 @@ const SIGNED_URL_TTL_SECONDS = 3600
 const KATEX_CDN_VERSION = '0.16.21'
 const KATEX_CSS_HREF = `https://cdn.jsdelivr.net/npm/katex@${KATEX_CDN_VERSION}/dist/katex.min.css`
 
+/** Print layout: body text uses CSS columns; images span full width. */
+const PRINT_COLUMN_COUNT = 2
+const PRINT_PAGE_MARGIN_MM = 11
+const PRINT_COLUMN_GAP_PX = 20
+
 export interface RawNoteForExport {
   id: string
   subject: string
@@ -260,12 +265,14 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
               n.created_at?.slice(0, 10) ?? '',
             )}</p>
           </header>
-          ${problemImgs}
-          ${problemText}
-          ${problemEmpty}
-          ${answerImgs}
-          ${answerText}
-          ${answerEmpty}
+          <div class="note-print-columns">
+            ${problemImgs}
+            ${problemText}
+            ${problemEmpty}
+            ${answerImgs}
+            ${answerText}
+            ${answerEmpty}
+          </div>
           ${stats}
         </article>
       `
@@ -281,29 +288,59 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
   <link rel="stylesheet" href="${KATEX_CSS_HREF}" crossorigin="anonymous" />
   <style>
     * { box-sizing: border-box; }
+    @page {
+      margin: ${PRINT_PAGE_MARGIN_MM}mm;
+    }
     body {
       font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
       color: #111;
       line-height: 1.5;
-      padding: 16px 20px 32px;
-      max-width: 800px;
-      margin: 0 auto;
+      margin: 0;
+      padding: 12px 14px 20px;
+      max-width: none;
     }
-    .doc-title { font-size: 20px; font-weight: 800; margin: 0 0 8px; }
-    .doc-meta { font-size: 12px; color: #444; margin: 0 0 4px; }
-    .doc-filter { font-size: 12px; color: #666; margin: 0 0 24px; }
+    .doc-banner {
+      page-break-after: avoid;
+      break-after: avoid;
+      margin-bottom: 12px;
+    }
+    .doc-title { font-size: 18px; font-weight: 800; margin: 0 0 6px; }
+    .doc-meta { font-size: 11px; color: #444; margin: 0 0 2px; }
+    .doc-filter { font-size: 11px; color: #666; margin: 0; }
     .note {
       page-break-after: always;
+      break-after: page;
       border: 1px solid #ccc;
       border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 24px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
     }
-    .note:last-child { page-break-after: auto; }
-    .note-head h2 { font-size: 16px; margin: 0 0 6px; }
-    .note-head .meta { font-size: 11px; color: #555; margin: 0; }
+    .note:last-child {
+      page-break-after: auto;
+      break-after: auto;
+      margin-bottom: 0;
+    }
+    article.note:first-of-type {
+      page-break-before: auto;
+      break-before: auto;
+    }
+    .note-head {
+      page-break-after: avoid;
+      break-after: avoid;
+      margin-bottom: 10px;
+    }
+    .note-head h2 { font-size: 15px; margin: 0 0 4px; }
+    .note-head .meta { font-size: 10px; color: #555; margin: 0; }
+    .note-print-columns {
+      column-count: ${PRINT_COLUMN_COUNT};
+      column-gap: ${PRINT_COLUMN_GAP_PX}px;
+      column-rule: 1px solid #ddd;
+      column-fill: balance;
+    }
     .img-block {
-      margin: 12px 0;
+      column-span: all;
+      -webkit-column-span: all;
+      margin: 8px 0 12px;
       text-align: center;
       background: #f5f5f5;
       padding: 8px;
@@ -311,54 +348,83 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
     }
     .img-block .label {
       display: block;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: #333;
       margin-bottom: 6px;
       text-align: left;
     }
-    .img-fig { margin: 0 0 12px; }
+    .img-fig { margin: 0 0 10px; }
     .img-fig:last-child { margin-bottom: 0; }
-    .img-fig img { max-width: 100%; height: auto; vertical-align: middle; }
+    .img-fig img {
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      vertical-align: middle;
+    }
     .img-fig figcaption {
-      font-size: 10px;
+      font-size: 9px;
       color: #666;
       margin-top: 4px;
       text-align: center;
     }
-    .empty-line { font-size: 11px; color: #888; margin: 10px 0; font-style: italic; }
-    .text-block { margin: 12px 0; }
+    .empty-line {
+      column-span: all;
+      -webkit-column-span: all;
+      font-size: 10px;
+      color: #888;
+      margin: 8px 0;
+      font-style: italic;
+    }
+    .text-block {
+      display: contents;
+    }
     .text-block .label {
+      column-span: all;
+      -webkit-column-span: all;
       display: block;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: #333;
-      margin-bottom: 4px;
+      margin: 10px 0 4px;
     }
     .text-block .katex-body {
       white-space: pre-wrap;
       word-break: break-word;
-      font-size: 11px;
-      line-height: 1.45;
-      margin: 0;
-      padding: 10px;
+      font-size: 10px;
+      line-height: 1.5;
+      margin: 0 0 8px;
+      padding: 8px;
       background: #fafafa;
       border: 1px solid #e5e5e5;
-      border-radius: 6px;
+      border-radius: 4px;
     }
     .text-block .katex-body .katex { font-size: 1.05em; }
-    .text-block .katex-body .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; }
-    .stats { font-size: 11px; color: #666; margin: 12px 0 0; }
+    .text-block .katex-body .katex-display {
+      margin: 0.5em 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .stats {
+      font-size: 10px;
+      color: #666;
+      margin: 10px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid #e5e5e5;
+    }
     @media print {
-      body { padding: 0; max-width: none; }
+      body { padding: 0; }
       .note { border-color: #999; }
+      .text-block .katex-body { font-size: 9.5pt; }
     }
   </style>
 </head>
 <body>
-  <h1 class="doc-title">${escapeHtml(meta.titleLine)}</h1>
-  <p class="doc-meta">보낸 시각: ${escapeHtml(meta.exportedAt)} · 총 ${layout.length}건</p>
-  <p class="doc-filter">${escapeHtml(meta.filterLine)}</p>
+  <header class="doc-banner">
+    <h1 class="doc-title">${escapeHtml(meta.titleLine)}</h1>
+    <p class="doc-meta">보낸 시각: ${escapeHtml(meta.exportedAt)} · 총 ${layout.length}건</p>
+    <p class="doc-filter">${escapeHtml(meta.filterLine)}</p>
+  </header>
   ${blocks}
 </body>
 </html>`

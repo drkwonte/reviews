@@ -50,6 +50,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { AdminSentNotificationsPanel } from '@/components/admin/AdminSentNotificationsPanel'
 
 type BroadcastAudience = 'global' | 'selected'
 
@@ -73,6 +74,7 @@ export default function AdminDashboardPage() {
   const [sheetNoticeTitle, setSheetNoticeTitle] = useState('')
   const [sheetNoticeBody, setSheetNoticeBody] = useState('')
   const [isSheetNoticeSending, setIsSheetNoticeSending] = useState(false)
+  const [notificationLogReloadKey, setNotificationLogReloadKey] = useState(0)
 
   useEffect(() => {
     fetchAdminData()
@@ -182,6 +184,7 @@ export default function AdminDashboardPage() {
         setAnnouncementTitle('')
         setAnnouncementBody('')
         setAnnouncementLink('')
+        setNotificationLogReloadKey((k) => k + 1)
       } else {
         const ids = [...selectedRecipientIds]
         await insertTargetedNotifications(ids, payload, 'personal')
@@ -190,6 +193,7 @@ export default function AdminDashboardPage() {
         setAnnouncementBody('')
         setAnnouncementLink('')
         clearRecipientSelection()
+        setNotificationLogReloadKey((k) => k + 1)
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : '알 수 없는 오류'
@@ -219,6 +223,7 @@ export default function AdminDashboardPage() {
       alert('해당 회원에게 공지를 보냈습니다.')
       setSheetNoticeTitle('')
       setSheetNoticeBody('')
+      setNotificationLogReloadKey((k) => k + 1)
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : '알 수 없는 오류'
       alert(`발송 실패: ${message}`)
@@ -279,6 +284,7 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="users" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">회원 관리</TabsTrigger>
             <TabsTrigger value="settings" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">시스템 설정</TabsTrigger>
             <TabsTrigger value="notifications" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">공지 발송</TabsTrigger>
+            <TabsTrigger value="notification-history" className="rounded-xl font-bold px-8 h-full data-[state=active]:bg-primary data-[state=active]:text-white transition-all">발송 기록</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
@@ -691,6 +697,10 @@ export default function AdminDashboardPage() {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="notification-history">
+            <AdminSentNotificationsPanel reloadSignal={notificationLogReloadKey} />
           </TabsContent>
         </Tabs>
       </div>

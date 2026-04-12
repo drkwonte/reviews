@@ -1,7 +1,12 @@
+import katex from 'katex'
 import { supabase } from '@/lib/supabase'
 import { normalizeStoredImagePathList, QUESTION_IMAGES_BUCKET } from '@/lib/noteMedia'
 
 const SIGNED_URL_TTL_SECONDS = 3600
+
+/** Matches KaTeX CSS used in package.json for print window (CDN fonts). */
+const KATEX_CDN_VERSION = '0.16.21'
+const KATEX_CSS_HREF = `https://cdn.jsdelivr.net/npm/katex@${KATEX_CDN_VERSION}/dist/katex.min.css`
 
 export interface RawNoteForExport {
   id: string
@@ -27,8 +32,15 @@ export interface PreparedExportNote extends RawNoteForExport {
 }
 
 export interface NotesPrintLayoutOptions {
-  /** When true, problem section uses OCR text instead of images (e.g. low resolution or multi-page preference). */
-  useProblemTextInsteadOfImages: boolean
+  /**
+   * Per-note: true (default) = 문제·정답 모두 이미지 우선.
+   * false = 텍스트가 있으면 문제·정답은 텍스트(KaTeX) 우선, 없을 때만 이미지.
+   */
+  problemImageFirstByNoteId: Record<string, boolean>
+}
+
+function isProblemImageFirstByNote(options: NotesPrintLayoutOptions, noteId: string): boolean {
+  return options.problemImageFirstByNoteId[noteId] !== false
 }
 
 function escapeHtml(text: string): string {
@@ -41,6 +53,39 @@ function escapeHtml(text: string): string {
 
 function escapeAttr(text: string): string {
   return escapeHtml(text).replace(/\n/g, ' ')
+}
+
+/**
+ * Escapes plain text, preserves newlines, and renders `$...$` / `$$...$$` with KaTeX (for print/PDF).
+ */
+export function renderTextWithKatexToHtml(raw: string): string {
+  const segments = raw.split(/(\$\$[\s\S]*?\$\$)/g)
+  let html = ''
+  for (const segment of segments) {
+    if (segment.startsWith('$$') && segment.endsWith('$$') && segment.length >= 4) {
+      const formula = segment.slice(2, -2).trim()
+      try {
+        html += katex.renderToString(formula, { displayMode: true, throwOnError: false })
+      } catch {
+        html += escapeHtml(segment)
+      }
+      continue
+    }
+    const inlineParts = segment.split(/(\$[^$\n]+\$)/g)
+    for (const part of inlineParts) {
+      if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+        const formula = part.slice(1, -1).trim()
+        try {
+          html += katex.renderToString(formula, { displayMode: false, throwOnError: false })
+        } catch {
+          html += escapeHtml(part)
+        }
+      } else {
+        html += escapeHtml(part).replace(/\n/g, '<br />\n')
+      }
+    }
+  }
+  return html
 }
 
 async function resolveStorageImageUrl(pathOrUrl: string | null | undefined): Promise<string | null> {
@@ -89,19 +134,20 @@ export interface NotePrintLayout {
   problemImageUrlsForPrint: string[]
   showProblemText: boolean
   answerImageUrlsForPrint: string[]
-  /** Render `answer_text` when non-empty (below images if any). */
+  /** When true, render answer_text (KaTeX) in print HTML. */
   showAnswerTextBlock: boolean
 }
 
 /**
- * Problem: images by default; OCR text only if the user opted in or there are no usable images.
- * Answer: all answer images when present; otherwise AI/OCR text. When both exist, images first then text.
+ * 문제: 노트별 이미지 우선(기본) 또는 텍스트 우선.
+ * 정답: 이미지 우선 모드면 이미지 후 텍스트; 텍스트 우선이면 텍스트만(없으면 이미지).
  */
 export function buildNotesPrintLayout(
   prepared: PreparedExportNote[],
   options: NotesPrintLayoutOptions,
 ): NotePrintLayout[] {
   return prepared.map((note) => {
+    const imageFirst = isProblemImageFirstByNote(options, note.id)
     const problemTextTrimmed = note.problem_text?.trim() ?? ''
     const hasProblemText = problemTextTrimmed.length > 0
     const resolvedProblemImages = note.problemImageUrls
@@ -109,7 +155,7 @@ export function buildNotesPrintLayout(
     let problemImageUrlsForPrint: string[] = []
     let showProblemText = false
 
-    if (options.useProblemTextInsteadOfImages && hasProblemText) {
+    if (!imageFirst && hasProblemText) {
       showProblemText = true
     } else if (resolvedProblemImages.length > 0) {
       problemImageUrlsForPrint = resolvedProblemImages
@@ -118,13 +164,26 @@ export function buildNotesPrintLayout(
     }
 
     const answerTextTrimmed = note.answer_text?.trim() ?? ''
-    const showAnswerTextBlock = answerTextTrimmed.length > 0
+    const hasAnswerText = answerTextTrimmed.length > 0
+    const answerImages = note.answerImageUrls
+
+    let answerImageUrlsForPrint: string[] = []
+    let showAnswerTextBlock = false
+
+    if (imageFirst) {
+      answerImageUrlsForPrint = [...answerImages]
+      showAnswerTextBlock = hasAnswerText
+    } else if (hasAnswerText) {
+      showAnswerTextBlock = true
+    } else if (answerImages.length > 0) {
+      answerImageUrlsForPrint = [...answerImages]
+    }
 
     return {
       note,
       problemImageUrlsForPrint,
       showProblemText,
-      answerImageUrlsForPrint: [...note.answerImageUrls],
+      answerImageUrlsForPrint,
       showAnswerTextBlock,
     }
   })
@@ -154,7 +213,9 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
 
       const problemText =
         row.showProblemText && n.problem_text?.trim()
-          ? `<div class="text-block"><span class="label">문제 (텍스트)</span><pre>${escapeHtml(n.problem_text)}</pre></div>`
+          ? `<div class="text-block"><span class="label">문제 (텍스트)</span><div class="katex-body">${renderTextWithKatexToHtml(
+              n.problem_text,
+            )}</div></div>`
           : ''
 
       const problemEmpty =
@@ -177,7 +238,9 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
 
       const answerText =
         row.showAnswerTextBlock && n.answer_text?.trim()
-          ? `<div class="text-block"><span class="label">정답·해설 (텍스트)</span><pre>${escapeHtml(n.answer_text)}</pre></div>`
+          ? `<div class="text-block"><span class="label">정답·해설 (텍스트)</span><div class="katex-body">${renderTextWithKatexToHtml(
+              n.answer_text,
+            )}</div></div>`
           : ''
 
       const answerEmpty =
@@ -215,6 +278,7 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(meta.titleLine)}</title>
+  <link rel="stylesheet" href="${KATEX_CSS_HREF}" crossorigin="anonymous" />
   <style>
     * { box-sizing: border-box; }
     body {
@@ -271,16 +335,19 @@ export function buildNotesPrintHtml(layout: NotePrintLayout[], meta: NotesPrintM
       color: #333;
       margin-bottom: 4px;
     }
-    .text-block pre {
+    .text-block .katex-body {
       white-space: pre-wrap;
       word-break: break-word;
       font-size: 11px;
+      line-height: 1.45;
       margin: 0;
       padding: 10px;
       background: #fafafa;
       border: 1px solid #e5e5e5;
       border-radius: 6px;
     }
+    .text-block .katex-body .katex { font-size: 1.05em; }
+    .text-block .katex-body .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; }
     .stats { font-size: 11px; color: #666; margin: 12px 0 0; }
     @media print {
       body { padding: 0; max-width: none; }

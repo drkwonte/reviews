@@ -12,9 +12,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppHeader } from '@/components/common/AppHeader'
@@ -33,6 +31,12 @@ interface Note extends RawNoteForExport {
   success_count?: number
 }
 
+/** Browser `title` tooltip on the list print button (per product copy). */
+const NOTE_LIST_PRINT_BUTTON_HOVER_HINT = '인쇄하려는 문제 카드를 선택한 뒤 버튼을 눌러주세요'
+
+const NOTE_EXPORT_SEGMENT_IMAGE_LABEL = '이미지 버전'
+const NOTE_EXPORT_SEGMENT_OCR_LABEL = 'OCR 버전'
+
 export default function NotesListPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -45,7 +49,6 @@ export default function NotesListPage() {
   const [sortBy] = useState('latest')
   const [showFavorites, setShowFavorites] = useState(false)
   const [exportingPrint, setExportingPrint] = useState(false)
-  const [printIncludeById, setPrintIncludeById] = useState<Record<string, boolean>>({})
   const [printImageFirstById, setPrintImageFirstById] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -131,14 +134,13 @@ export default function NotesListPage() {
   const filteredNoteIdsKey = useMemo(() => filteredNotes.map((n) => n.id).join('|'), [filteredNotes])
 
   useEffect(() => {
-    const nextInclude: Record<string, boolean> = {}
-    const nextImageFirst: Record<string, boolean> = {}
-    for (const n of filteredNotes) {
-      nextInclude[n.id] = true
-      nextImageFirst[n.id] = true
-    }
-    setPrintIncludeById(nextInclude)
-    setPrintImageFirstById(nextImageFirst)
+    setPrintImageFirstById((prev) => {
+      const next: Record<string, boolean> = {}
+      for (const n of filteredNotes) {
+        next[n.id] = prev[n.id] !== undefined ? prev[n.id]! : true
+      }
+      return next
+    })
   }, [filteredNoteIdsKey])
 
   const filterSummaryForExport = useMemo(() => {
@@ -150,21 +152,14 @@ export default function NotesListPage() {
     return parts.length > 0 ? parts.join(' · ') : '필터 없음 (목록과 동일)'
   }, [selectedSubject, showFavorites, searchTerm])
 
-  const hasPrintSelection = filteredNotes.some((n) => printIncludeById[n.id] !== false)
-
   const runPrintExport = async () => {
     if (filteredNotes.length === 0) {
       alert('현재 화면에 표시된 오답노트가 없습니다.')
       return
     }
-    const selected = filteredNotes.filter((n) => printIncludeById[n.id] !== false)
-    if (selected.length === 0) {
-      alert('인쇄에 포함할 오답노트를 하나 이상 선택해 주세요.')
-      return
-    }
     setExportingPrint(true)
     try {
-      const prepared = await prepareNotesForPrintExport(selected as RawNoteForExport[])
+      const prepared = await prepareNotesForPrintExport(filteredNotes as RawNoteForExport[])
       const layout = buildNotesPrintLayout(prepared, {
         problemImageFirstByNoteId: printImageFirstById,
       })
@@ -196,8 +191,8 @@ export default function NotesListPage() {
               type="button"
               variant="outline"
               className="rounded-2xl font-black border-border h-12 px-4"
-              disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
-              title="프린터로 출력하거나, 인쇄 창에서 대상을 PDF로 저장으로 바꿔 PDF 파일을 만들 수 있습니다."
+              disabled={exportingPrint || filteredNotes.length === 0}
+              title={NOTE_LIST_PRINT_BUTTON_HOVER_HINT}
               onClick={() => void runPrintExport()}
             >
               {exportingPrint ? (
@@ -313,46 +308,50 @@ export default function NotesListPage() {
                   </div>
 
                   <div
-                    className="px-6 pt-3 pb-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 bg-muted/20"
+                    className="px-5 pt-3 pb-3 border-t border-border/70 bg-muted/20"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Checkbox
-                        id={`print-include-${note.id}`}
-                        checked={printIncludeById[note.id] !== false}
-                        onCheckedChange={(checked) =>
-                          setPrintIncludeById((prev) => ({
-                            ...prev,
-                            [note.id]: checked === true,
-                          }))
-                        }
-                        className="border-border"
-                      />
-                      <Label
-                        htmlFor={`print-include-${note.id}`}
-                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
-                      >
-                        인쇄/보내기
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Checkbox
-                        id={`print-image-first-${note.id}`}
-                        checked={printImageFirstById[note.id] !== false}
-                        onCheckedChange={(checked) =>
+                    <div
+                      className="flex w-full rounded-xl border border-border/90 bg-background/80 p-1 shadow-sm"
+                      role="group"
+                      aria-label="인쇄 시 문제 표시 방식"
+                    >
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex-1 min-w-0 rounded-lg py-2 px-2 text-[10px] font-black tracking-tight transition-all',
+                          printImageFirstById[note.id] !== false
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                        )}
+                        aria-pressed={printImageFirstById[note.id] !== false}
+                        onClick={() =>
                           setPrintImageFirstById((prev) => ({
                             ...prev,
-                            [note.id]: checked === true,
+                            [note.id]: true,
                           }))
                         }
-                        className="border-border"
-                      />
-                      <Label
-                        htmlFor={`print-image-first-${note.id}`}
-                        className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
                       >
-                        이미지 위주
-                      </Label>
+                        {NOTE_EXPORT_SEGMENT_IMAGE_LABEL}
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex-1 min-w-0 rounded-lg py-2 px-2 text-[10px] font-black tracking-tight transition-all',
+                          printImageFirstById[note.id] === false
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                        )}
+                        aria-pressed={printImageFirstById[note.id] === false}
+                        onClick={() =>
+                          setPrintImageFirstById((prev) => ({
+                            ...prev,
+                            [note.id]: false,
+                          }))
+                        }
+                      >
+                        {NOTE_EXPORT_SEGMENT_OCR_LABEL}
+                      </button>
                     </div>
                   </div>
 

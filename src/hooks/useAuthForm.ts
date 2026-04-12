@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { TermsState, isRequiredTermsAgreed } from '@/components/auth/TermsAgreement'
@@ -11,6 +11,11 @@ export function useLoginForm() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setEmail('')
+    setPassword('')
+  }, [])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,6 +58,18 @@ export function useSignupForm() {
 
   // Google 가입 약관 동의 다이얼로그 표시 여부
   const [showGoogleTerms, setShowGoogleTerms] = useState(false)
+
+  useEffect(() => {
+    setName('')
+    setEmail('')
+    setPassword('')
+    setTerms({
+      all: false,
+      service: false,
+      privacy: false,
+      marketing: false,
+    })
+  }, [])
 
   /** 이메일 회원가입 */
   const handleSignup = async (e: React.FormEvent) => {

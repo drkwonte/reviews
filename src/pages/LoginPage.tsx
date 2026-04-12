@@ -30,7 +30,12 @@ export default function LoginPage() {
 
       <div className="grid gap-6">
         {/* 이메일 폼 */}
-        <form onSubmit={handleEmailLogin}>
+        <form
+          onSubmit={handleEmailLogin}
+          autoComplete="off"
+          method="post"
+          action="#"
+        >
           <div className="grid gap-4">
             {error && (
               <p id="login-error" className="text-sm text-destructive text-center">
@@ -41,12 +46,18 @@ export default function LoginPage() {
               <Label htmlFor="input-email" className="sr-only">이메일</Label>
               <Input
                 id="input-email"
+                name="ep1-login-email"
                 type="email"
                 placeholder="name@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore
+                data-form-type="other"
                 disabled={loading}
               />
             </div>
@@ -54,12 +65,16 @@ export default function LoginPage() {
               <Label htmlFor="input-password" className="sr-only">비밀번호</Label>
               <Input
                 id="input-password"
+                name="ep1-login-password"
                 type="password"
                 placeholder="비밀번호"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
+                data-form-type="other"
                 disabled={loading}
               />
             </div>

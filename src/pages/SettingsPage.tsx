@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   User,
@@ -6,7 +7,6 @@ import {
   CreditCard,
   KeyRound,
   Loader2,
-  ExternalLink,
   Megaphone,
   UserCircle,
 } from 'lucide-react'
@@ -41,6 +41,13 @@ import {
 
 const PASSWORD_MIN_LENGTH = 8
 
+const SETTINGS_TAB_IDS = ['profile', 'security', 'notices', 'billing'] as const
+type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number]
+
+function isSettingsTabId(value: string | null): value is SettingsTabId {
+  return value !== null && SETTINGS_TAB_IDS.includes(value as SettingsTabId)
+}
+
 interface UserPlanStatusRow {
   user_id: string
   email: string
@@ -64,8 +71,12 @@ interface UserNotificationRow {
 
 export default function SettingsPage() {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [activeTab, setActiveTab] = useState('profile')
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(() => {
+    const t = searchParams.get('tab')
+    return isSettingsTabId(t) ? t : 'profile'
+  })
 
   const [name, setName] = useState('')
   const [levelMode, setLevelMode] = useState<string>(USER_LEVEL_SELECT_VALUE_NONE)
@@ -90,6 +101,22 @@ export default function SettingsPage() {
     () => Boolean(user?.identities?.some((i) => i.provider === 'email')),
     [user],
   )
+
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (isSettingsTabId(t)) setActiveTab(t)
+    else if (t === null || t === '') setActiveTab('profile')
+  }, [searchParams])
+
+  const handleSettingsTabChange = (value: string) => {
+    if (!isSettingsTabId(value)) return
+    setActiveTab(value)
+    if (value === 'profile') {
+      setSearchParams({}, { replace: true })
+    } else {
+      setSearchParams({ tab: value }, { replace: true })
+    }
+  }
 
   useEffect(() => {
     if (!profile) return
@@ -299,7 +326,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+        <Tabs value={activeTab} onValueChange={handleSettingsTabChange} className="space-y-8">
           <TabsList className="bg-card border border-border p-1.5 rounded-2xl h-auto flex-wrap w-full justify-start gap-1">
             <TabsTrigger value="profile" className="rounded-xl font-bold px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <User className="h-4 w-4 mr-2 inline" />
@@ -521,22 +548,21 @@ export default function SettingsPage() {
                               {format(new Date(n.created_at), 'yyyy-MM-dd HH:mm')}
                             </time>
                           </div>
-                          <h3 className="font-black text-lg text-foreground mb-2">{n.title}</h3>
-                          <p className="text-sm text-foreground/90 whitespace-pre-wrap font-medium leading-relaxed">
+                          <h3 className="font-black text-lg text-foreground mb-2 line-clamp-2">{n.title}</h3>
+                          <p className="text-sm text-foreground/90 font-medium leading-relaxed line-clamp-3 break-words">
                             {n.body}
                           </p>
-                          {n.link && (
-                            <a
-                              href={n.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-sm font-bold text-primary mt-3 underline"
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              className="rounded-xl font-bold"
+                              asChild
                             >
-                              링크 열기 <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {!read && (
-                            <div className="mt-4">
+                              <Link to={`/settings/notices/${n.id}`}>자세히 보기</Link>
+                            </Button>
+                            {!read && (
                               <Button
                                 type="button"
                                 variant="secondary"
@@ -551,8 +577,11 @@ export default function SettingsPage() {
                                   '읽음 처리'
                                 )}
                               </Button>
-                            </div>
-                          )}
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-medium mt-2">
+                            링크·전체 본문은 상세 페이지에서 확인할 수 있습니다.
+                          </p>
                         </li>
                       )
                     })}

@@ -72,7 +72,12 @@ export default function SignupPage() {
           </div>
 
           {/* 이메일 가입 폼 */}
-          <form onSubmit={handleSignup}>
+          <form
+            onSubmit={handleSignup}
+            autoComplete="off"
+            method="post"
+            action="#"
+          >
             <div className="grid gap-4">
               {error && (
                 <p id="signup-error" className="text-sm text-destructive text-center">
@@ -84,11 +89,16 @@ export default function SignupPage() {
                 <Label htmlFor="input-name">이름</Label>
                 <Input
                   id="input-name"
+                  name="ep1-signup-name"
                   type="text"
                   placeholder="홍길동"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-form-type="other"
                   disabled={loading}
                 />
               </div>
@@ -97,12 +107,18 @@ export default function SignupPage() {
                 <Label htmlFor="input-email">이메일</Label>
                 <Input
                   id="input-email"
+                  name="ep1-signup-email"
                   type="email"
                   placeholder="name@example.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  autoComplete="email"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-form-type="other"
                   disabled={loading}
                 />
               </div>
@@ -111,12 +127,16 @@ export default function SignupPage() {
                 <Label htmlFor="input-password">비밀번호</Label>
                 <Input
                   id="input-password"
+                  name="ep1-signup-password"
                   type="password"
                   placeholder="6자 이상"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  autoComplete="new-password"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-form-type="other"
                   disabled={loading}
                 />
               </div>

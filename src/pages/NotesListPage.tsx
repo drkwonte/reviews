@@ -12,7 +12,9 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppHeader } from '@/components/common/AppHeader'
@@ -32,10 +34,12 @@ interface Note extends RawNoteForExport {
 }
 
 /** Browser `title` tooltip on the list print button (per product copy). */
-const NOTE_LIST_PRINT_BUTTON_HOVER_HINT = '인쇄하려는 문제 카드를 선택한 뒤 버튼을 눌러주세요'
+const NOTE_LIST_PRINT_BUTTON_HOVER_HINT =
+  '인쇄하려는 문제 카드를 선택한 뒤 버튼을 눌러주세요. 카드 미리보기 왼쪽 아래 「인쇄 포함」으로 선택합니다.'
 
 const NOTE_EXPORT_SEGMENT_IMAGE_LABEL = '이미지 버전'
 const NOTE_EXPORT_SEGMENT_OCR_LABEL = 'OCR 버전'
+const NOTE_CARD_PRINT_INCLUDE_LABEL = '인쇄 포함'
 
 export default function NotesListPage() {
   const navigate = useNavigate()
@@ -50,6 +54,7 @@ export default function NotesListPage() {
   const [showFavorites, setShowFavorites] = useState(false)
   const [exportingPrint, setExportingPrint] = useState(false)
   const [printImageFirstById, setPrintImageFirstById] = useState<Record<string, boolean>>({})
+  const [printSelectedById, setPrintSelectedById] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (user) {
@@ -141,6 +146,13 @@ export default function NotesListPage() {
       }
       return next
     })
+    setPrintSelectedById((prev) => {
+      const next: Record<string, boolean> = {}
+      for (const n of filteredNotes) {
+        next[n.id] = prev[n.id] !== undefined ? prev[n.id]! : true
+      }
+      return next
+    })
   }, [filteredNoteIdsKey])
 
   const filterSummaryForExport = useMemo(() => {
@@ -152,14 +164,21 @@ export default function NotesListPage() {
     return parts.length > 0 ? parts.join(' · ') : '필터 없음 (목록과 동일)'
   }, [selectedSubject, showFavorites, searchTerm])
 
+  const hasPrintSelection = filteredNotes.some((n) => printSelectedById[n.id] !== false)
+
   const runPrintExport = async () => {
     if (filteredNotes.length === 0) {
       alert('현재 화면에 표시된 오답노트가 없습니다.')
       return
     }
+    const selectedForPrint = filteredNotes.filter((n) => printSelectedById[n.id] !== false)
+    if (selectedForPrint.length === 0) {
+      alert('인쇄할 카드를 하나 이상 선택해 주세요. (미리보기 왼쪽 아래 「인쇄 포함」)')
+      return
+    }
     setExportingPrint(true)
     try {
-      const prepared = await prepareNotesForPrintExport(filteredNotes as RawNoteForExport[])
+      const prepared = await prepareNotesForPrintExport(selectedForPrint as RawNoteForExport[])
       const layout = buildNotesPrintLayout(prepared, {
         problemImageFirstByNoteId: printImageFirstById,
       })
@@ -191,7 +210,7 @@ export default function NotesListPage() {
               type="button"
               variant="outline"
               className="rounded-2xl font-black border-border h-12 px-4"
-              disabled={exportingPrint || filteredNotes.length === 0}
+              disabled={exportingPrint || filteredNotes.length === 0 || !hasPrintSelection}
               title={NOTE_LIST_PRINT_BUTTON_HOVER_HINT}
               onClick={() => void runPrintExport()}
             >
@@ -301,10 +320,32 @@ export default function NotesListPage() {
                       {note.subject}
                     </Badge>
                     {note.is_favorite && (
-                      <div className="absolute top-5 right-5 text-primary drop-shadow-md">
+                      <div className="absolute top-5 right-5 text-primary drop-shadow-md pointer-events-none">
                         <Star size={20} fill="currentColor" />
                       </div>
                     )}
+                    <div
+                      className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-xl border border-border/90 bg-background/95 px-2.5 py-1.5 shadow-md backdrop-blur-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        id={`print-select-${note.id}`}
+                        checked={printSelectedById[note.id] !== false}
+                        onCheckedChange={(checked) =>
+                          setPrintSelectedById((prev) => ({
+                            ...prev,
+                            [note.id]: checked === true,
+                          }))
+                        }
+                        className="border-border"
+                      />
+                      <Label
+                        htmlFor={`print-select-${note.id}`}
+                        className="cursor-pointer text-[9px] font-black uppercase tracking-widest text-foreground leading-none whitespace-nowrap"
+                      >
+                        {NOTE_CARD_PRINT_INCLUDE_LABEL}
+                      </Label>
+                    </div>
                   </div>
 
                   <div
@@ -392,12 +433,21 @@ export default function NotesListPage() {
                         >
                           <Trash2 size={20} />
                         </button>
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center ml-2 border border-border group-hover:bg-foreground group-hover:border-foreground transition-all">
+                        <button
+                          type="button"
+                          title="상세 보기"
+                          aria-label="상세 보기"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/notes/${note.id}`)
+                          }}
+                          className="w-8 h-8 rounded-full bg-muted flex items-center justify-center ml-2 border border-border group-hover:bg-foreground group-hover:border-foreground transition-all"
+                        >
                           <ChevronRight
                             size={18}
                             className="text-muted-foreground group-hover:text-background transition-all transform group-hover:translate-x-0.5"
                           />
-                        </div>
+                        </button>
                       </div>
                     </div>
                   </div>

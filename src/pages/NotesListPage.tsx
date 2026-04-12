@@ -13,7 +13,17 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppHeader } from '@/components/common/AppHeader'
@@ -22,6 +32,7 @@ import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
   prepareNotesForPrintExport,
+  buildNotesPrintLayout,
   buildNotesPrintHtml,
   openNotesPrintWindow,
   type RawNoteForExport,
@@ -43,6 +54,8 @@ export default function NotesListPage() {
   const [sortBy] = useState('latest')
   const [showFavorites, setShowFavorites] = useState(false)
   const [exportingPrint, setExportingPrint] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [useProblemTextForPrint, setUseProblemTextForPrint] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -124,15 +137,24 @@ export default function NotesListPage() {
     return parts.length > 0 ? parts.join(' · ') : '필터 없음 (목록과 동일)'
   }, [selectedSubject, showFavorites, searchTerm])
 
-  const handlePrintOrPdfExport = async () => {
+  const openExportOptionsDialog = () => {
     if (filteredNotes.length === 0) {
       alert('현재 화면에 표시된 오답노트가 없습니다.')
       return
     }
+    setUseProblemTextForPrint(false)
+    setExportDialogOpen(true)
+  }
+
+  const runPrintOrPdfExport = async () => {
+    setExportDialogOpen(false)
     setExportingPrint(true)
     try {
       const prepared = await prepareNotesForPrintExport(filteredNotes as RawNoteForExport[])
-      const html = buildNotesPrintHtml(prepared, {
+      const layout = buildNotesPrintLayout(prepared, {
+        useProblemTextInsteadOfImages: useProblemTextForPrint,
+      })
+      const html = buildNotesPrintHtml(layout, {
         titleLine: 'nextime 오답노트',
         filterLine: filterSummaryForExport,
         exportedAt: format(new Date(), 'yyyy-MM-dd HH:mm'),
@@ -149,6 +171,49 @@ export default function NotesListPage() {
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden transition-colors duration-300">
       <AppHeader />
 
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>인쇄·PDF 전 확인</DialogTitle>
+            <DialogDescription asChild>
+              <div className="text-left space-y-2 pt-1">
+                <p>
+                  문제는 기본적으로 저장된 이미지로 출력됩니다. 정답·해설도 이미지가 있으면 이미지를 먼저 넣고, 없을 때만 AI·OCR 텍스트만
+                  출력합니다.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  미리보기에서 해상도가 낮거나, 여러 장을 한꺼번에 글로 보고 싶을 때만 아래 옵션을 켜 주세요.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4">
+            <Checkbox
+              id="print-problem-ocr"
+              checked={useProblemTextForPrint}
+              onCheckedChange={(checked) => setUseProblemTextForPrint(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="print-problem-ocr" className="cursor-pointer text-sm font-bold leading-snug">
+                문제를 텍스트(OCR)로 출력
+              </Label>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                체크하면 문제 이미지 대신 저장된 OCR 텍스트만 씁니다. OCR이 없는 노트는 이미지가 있으면 그대로 이미지로 나갑니다.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setExportDialogOpen(false)}>
+              취소
+            </Button>
+            <Button type="button" className="font-bold" onClick={() => void runPrintOrPdfExport()}>
+              인쇄 창 열기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="container py-10 px-4 max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-4">
           <div className="text-center md:text-left">
@@ -163,7 +228,7 @@ export default function NotesListPage() {
                 className="rounded-2xl font-black border-border h-12 px-4"
                 disabled={exportingPrint || filteredNotes.length === 0}
                 title="시스템 프린터로 출력합니다."
-                onClick={() => void handlePrintOrPdfExport()}
+                onClick={openExportOptionsDialog}
               >
                 {exportingPrint ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -178,7 +243,7 @@ export default function NotesListPage() {
                 className="rounded-2xl font-black border-border h-12 px-4"
                 disabled={exportingPrint || filteredNotes.length === 0}
                 title="인쇄 창에서 프린터 대신 PDF로 저장을 선택할 수 있습니다."
-                onClick={() => void handlePrintOrPdfExport()}
+                onClick={openExportOptionsDialog}
               >
                 {exportingPrint ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppHeader } from '@/components/common/AppHeader'
 import { supabase } from '@/lib/supabase'
+import { normalizeStoredImagePathList, pathsToPublicImageUrls } from '@/lib/noteMedia'
 import { cn } from '@/lib/utils'
 import 'katex/dist/katex.min.css'
 import { InlineMath } from 'react-katex'
@@ -124,6 +125,13 @@ export default function NoteDetailPage() {
 
   const successCount = logs.filter(l => l.result === 'success').length
   const displayAccuracy = logs.length > 0 ? Math.round((successCount / logs.length) * 100) : 0
+
+  const problemDisplayUrls = note
+    ? pathsToPublicImageUrls(normalizeStoredImagePathList(note.problem_urls, note.problem_url))
+    : []
+  const answerDisplayUrls = note
+    ? pathsToPublicImageUrls(normalizeStoredImagePathList(note.answer_urls, note.answer_url))
+    : []
 
   return (
     <div className="min-h-screen bg-background pb-20 transition-colors duration-300">
@@ -252,10 +260,26 @@ export default function NoteDetailPage() {
                   <Card className="border-0 shadow-xl rounded-[32px] overflow-hidden bg-card min-h-[400px]">
                     <CardContent className="p-0">
                       {viewMode === 'image' ? (
-                        <div className="p-8 bg-muted/20 flex items-center justify-center">
-                           {note.problem_url ? (
-                             <img src={note.problem_url} alt="Q" loading="lazy" className="w-full h-auto object-contain rounded-2xl shadow-2xl" />
-                           ) : <ImageIcon size={64} className="text-muted" />}
+                        <div className="p-8 bg-muted/20 flex flex-col items-center justify-center gap-8">
+                          {problemDisplayUrls.length > 0 ? (
+                            problemDisplayUrls.map((url, imgIndex) => (
+                              <figure key={`${url}-${imgIndex}`} className="w-full">
+                                <img
+                                  src={url}
+                                  alt={`문제 ${imgIndex + 1}`}
+                                  loading="lazy"
+                                  className="w-full h-auto object-contain rounded-2xl shadow-2xl"
+                                />
+                                {problemDisplayUrls.length > 1 && (
+                                  <figcaption className="mt-2 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    {imgIndex + 1} / {problemDisplayUrls.length}
+                                  </figcaption>
+                                )}
+                              </figure>
+                            ))
+                          ) : (
+                            <ImageIcon size={64} className="text-muted" />
+                          )}
                         </div>
                       ) : (
                         <div className="p-12 text-xl leading-relaxed text-foreground">
@@ -293,11 +317,31 @@ export default function NoteDetailPage() {
                   ) : (
                     <Card className="border-0 shadow-xl rounded-[32px] overflow-hidden bg-card animate-in zoom-in-95 duration-300">
                       <CardContent className="p-12 space-y-10 text-foreground">
-                        {note.answer_url && <img src={note.answer_url} alt="A" loading="lazy" className="w-full h-auto object-contain rounded-2xl shadow-lg border border-border" />}
-                        <div className="p-8 bg-muted/50 rounded-[28px] border border-border">
-                          <h4 className="text-sm font-black text-primary mb-4 uppercase">AI Solution Guide</h4>
-                          <div className="leading-relaxed whitespace-pre-wrap">{renderMath(note.answer_text)}</div>
-                        </div>
+                        {answerDisplayUrls.length > 0 && (
+                          <div className="flex flex-col gap-8">
+                            {answerDisplayUrls.map((url, imgIndex) => (
+                              <figure key={`${url}-${imgIndex}`} className="w-full">
+                                <img
+                                  src={url}
+                                  alt={`정답 ${imgIndex + 1}`}
+                                  loading="lazy"
+                                  className="w-full h-auto object-contain rounded-2xl shadow-lg border border-border"
+                                />
+                                {answerDisplayUrls.length > 1 && (
+                                  <figcaption className="mt-2 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    {imgIndex + 1} / {answerDisplayUrls.length}
+                                  </figcaption>
+                                )}
+                              </figure>
+                            ))}
+                          </div>
+                        )}
+                        {note.answer_text?.trim() ? (
+                          <div className="p-8 bg-muted/50 rounded-[28px] border border-border">
+                            <h4 className="text-sm font-black text-primary mb-4 uppercase">AI Solution Guide</h4>
+                            <div className="leading-relaxed whitespace-pre-wrap">{renderMath(note.answer_text)}</div>
+                          </div>
+                        ) : null}
 
                         {/* 복습 결과 제출 버튼 */}
                         <div className="border-t border-border pt-10 flex flex-col items-center gap-6">

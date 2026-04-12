@@ -21,6 +21,7 @@ import { extractTextFromImage, generateAnswerFromText } from '@/services/gemini'
 import 'katex/dist/katex.min.css'
 import katex from 'katex'
 import { supabase } from '@/lib/supabase'
+import { QUESTION_IMAGES_BUCKET } from '@/lib/noteMedia'
 import { ImageCropModal } from '@/components/common/ImageCropModal'
 
 type Step = 1 | 2 | 3 | 4
@@ -201,33 +202,49 @@ export default function NoteNewPage() {
     setLoading(true)
     setLoadingText('오답 노트를 서버에 저장하는 중입니다...')
     try {
-      let problemImageUrl = ''
-      let answerImageUrl = ''
+      let problemImageUrl: string | null = null
+      const problemPaths: string[] = []
+      const saveBatchTimestamp = Date.now()
 
-      if (mergedProblemFile) {
-        const fileName = `${user.id}/${Date.now()}_problem_merged.webp`
-        const { data, error } = await supabase.storage
-          .from('question-images')
-          .upload(fileName, mergedProblemFile)
-        
-        if (error) throw error
-        const { data: { publicUrl } } = supabase.storage
-          .from('question-images')
-          .getPublicUrl(data.path)
-        problemImageUrl = publicUrl
+      if (problemImages.length > 0) {
+        const sortedProblems = [...problemImages].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+        )
+        for (let pageIndex = 0; pageIndex < sortedProblems.length; pageIndex++) {
+          const file = sortedProblems[pageIndex]
+          const extensionMatch = file.name.match(/\.[a-z0-9]+$/i)
+          const extension = extensionMatch ? extensionMatch[0] : '.webp'
+          const fileName = `${user.id}/${saveBatchTimestamp}_problem_${pageIndex}${extension}`
+          const { data, error } = await supabase.storage.from(QUESTION_IMAGES_BUCKET).upload(fileName, file)
+          if (error) throw error
+          problemPaths.push(data.path)
+          if (pageIndex === 0) {
+            const { data: pub } = supabase.storage.from(QUESTION_IMAGES_BUCKET).getPublicUrl(data.path)
+            problemImageUrl = pub.publicUrl
+          }
+        }
       }
 
-      if (mergedAnswerFile) {
-        const fileName = `${user.id}/${Date.now()}_answer_merged.webp`
-        const { data, error } = await supabase.storage
-          .from('question-images')
-          .upload(fileName, mergedAnswerFile)
-        
-        if (error) throw error
-        const { data: { publicUrl } } = supabase.storage
-          .from('question-images')
-          .getPublicUrl(data.path)
-        answerImageUrl = publicUrl
+      let answerImageUrl: string | null = null
+      const answerPaths: string[] = []
+
+      if (answerImages.length > 0) {
+        const sortedAnswers = [...answerImages].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+        )
+        for (let pageIndex = 0; pageIndex < sortedAnswers.length; pageIndex++) {
+          const file = sortedAnswers[pageIndex]
+          const extensionMatch = file.name.match(/\.[a-z0-9]+$/i)
+          const extension = extensionMatch ? extensionMatch[0] : '.webp'
+          const fileName = `${user.id}/${saveBatchTimestamp}_answer_${pageIndex}${extension}`
+          const { data, error } = await supabase.storage.from(QUESTION_IMAGES_BUCKET).upload(fileName, file)
+          if (error) throw error
+          answerPaths.push(data.path)
+          if (pageIndex === 0) {
+            const { data: pub } = supabase.storage.from(QUESTION_IMAGES_BUCKET).getPublicUrl(data.path)
+            answerImageUrl = pub.publicUrl
+          }
+        }
       }
 
       const { error: dbError } = await supabase
@@ -238,8 +255,10 @@ export default function NoteNewPage() {
           category,
           source,
           problem_url: problemImageUrl,
+          problem_urls: problemPaths.length > 0 ? problemPaths : null,
           problem_text: problemText,
           answer_url: answerImageUrl,
+          answer_urls: answerPaths.length > 0 ? answerPaths : null,
           answer_text: answerText,
         })
 
